@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rich HTML Editor</title>
+<link rel="stylesheet" href="theme.css">
+<!-- <link rel="stylesheet" href="style.css"> -->
+<style>
+	.editor {
+		width: 100%;
+		min-height: 300px;
+		border: 1px solid #ccc;
+		padding: 10px;
+		margin-bottom: 10px;
+		position: relative;
+		color: var(--text-color);
+	}
+
+	span.placeholder {
+		color: var(--gray-color);
+		font-size: 1rem;
+		font-family: var(--font-read), sans-serif;
+		position: absolute;
+		top: 10px;
+		left: 10px;
+	}
+</style>
+</head>
+<body>
+
+<div class="editor" contenteditable="true" data-placeholder="Start typing here...">
+	<span class="placeholder">Start typing..</span>
+</div>
+<div class="toolbar">
+	<button data-node="strong" data-command="bold"><strong>B</strong></button>
+	<button data-node="em" data-command="italic"><em>I</em></button>
+	<button data-node="u" data-command="underline"><u>U</u></button>
+	<button data-none="ul" data-command="insertUnorderedList">UL</button>
+	<button data-none="ol" data-command="insertOrderedList">OL</button>
+	<button data-none="j-left" data-command="justifyLeft">Left</button>
+	<button data-none="j-center" data-command="justifyCenter">Center</button>
+	<button data-none="j-right" data-command="justifyRight">Right</button>
+	<button data-none="j-full" data-command="justifyFull">Justify</button>
+	<button data-none="link" data-command="createLink"><u>Link</u></button>
+	<button data-none="hr" data-command="insertHorizontalRule">HR</button>
+	<button data-none="h2" data-command="formatBlock" data-value="h2">H2</button>
+	<button data-none="h3" data-command="formatBlock" data-value="h3">H3</button>
+	<button data-none="p" data-command="formatBlock" data-value="p">P</button>
+	<button data-none="code" data-command="insertHTML" data-value="<code></code>">Code</button>
+</div>
+
+<script>
+	document.addEventListener("DOMContentLoaded", function() {
+		// Get the editable div
+		const editor = document.querySelector('.editor');
+
+
+		// Handle key press events
+		let firstKeypress = true;
+		let currentFormatting = 'p';
+
+		// Handle key press events
+		editor.addEventListener('keypress', e => {
+			// e.preventDefault();
+
+			// Check if it's the first key press and remove the placeholder
+			if (firstKeypress) {
+				const placeholder = editor.querySelector('span.placeholder');
+				if (placeholder) {
+					placeholder.remove();
+				}
+				firstKeypress = false;
+
+				// Create a new paragraph element and append it to the editor
+				const paragraph = document.createElement('p');
+				paragraph.textContent = '\u200B'; // Add a zero-width space to make the paragraph focusable
+				editor.appendChild(paragraph);
+
+				// Set the cursor at the beginning of the paragraph
+				const range = document.createRange();
+				const selection = window.getSelection();
+				range.setStart(paragraph, 0);
+				range.collapse(true);
+				selection.removeAllRanges();
+				selection.addRange(range);
+				editor.focus();
+			}
+
+			// Check if the current key press is Enter
+			if (e.key === 'Enter') {
+				e.preventDefault(); // Prevent default new line behavior
+
+				// get the current formatting of the selected text
+				currentFormatting = getCurrentFormatting();
+
+				// Check if the current formatting is a block element
+				if (currentFormatting) {
+					// Check is formatting is ordered list or unordered list
+					if (currentFormatting === 'ol' || currentFormatting === 'ul') {
+						const selection = window.getSelection();
+						if (selection.rangeCount > 0) {
+							const range = selection.getRangeAt(0);
+							const currentLi = getContainingLi(range.startContainer);
+							if (currentLi) {
+								const newLi = document.createElement('li');
+								newLi.textContent = '\u200B'; // Zero-width space for focusability
+								const nextSibling = currentLi.nextSibling;
+								if (nextSibling) {
+									currentLi.parentNode.insertBefore(newLi, nextSibling);
+								} else {
+									currentLi.parentNode.appendChild(newLi);
+								}
+								range.setStart(newLi, 0); // Set cursor at the beginning of the new li
+								range.collapse(true); // Collapse range to the start
+								selection.removeAllRanges();
+								selection.addRange(range);
+								newLi.focus();
+							}
+						}
+					}
+					else if (currentFormatting === 'p') {
+						const paragraph = document.createElement('p');
+						paragraph.textContent = '\u200B'; // Zero-width space for focusability
+						editor.appendChild(paragraph);
+
+						const range = window.getSelection().getRangeAt(0);
+						range.setStart(paragraph, 0);
+						range.collapse(true);
+						editor.focus();
+					}
+					else {
+						const range = window.getSelection().getRangeAt(0);
+						const brElement = document.createElement('br');
+						range.insertNode(brElement);
+						range.collapse(false); // Move cursor to the next line
+					}
+				}
+				else {
+					const paragraph = document.createElement('p');
+					paragraph.textContent = '\u200B'; // Zero-width space for focusability
+					editor.appendChild(paragraph);
+
+					const range = window.getSelection().getRangeAt(0);
+					range.setStart(paragraph, 0);
+					range.collapse(true);
+					editor.focus();
+				}
+			}
+		});
+
+		// handle paste event, and remove place holder accordingly
+		editor.addEventListener('paste', e => {
+			// Check if it's the first key press and remove the placeholder
+			if (firstKeypress && placeholder) {
+				placeholder.remove();
+				firstKeypress = false;
+			}
+		});
+
+		// Handle blur event
+		editor.addEventListener('blur', function () {
+			if (editor.textContent === '') {
+
+				// Create a new span element and add the placeholder text
+				const placeholder = document.createElement('span');
+				placeholder.classList.add('placeholder');
+				placeholder.textContent = editor.getAttribute('data-placeholder');
+
+				editor.insertAdjacentElement('afterbegin', placeholder);
+
+				firstKeypress = true;
+			}
+		});
+
+		// handle keydown event
+		editor.addEventListener('keydown', e => {
+
+			// Prevent default browser behavior for Ctrl+B, Ctrl+I, Ctrl+U
+			if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+				e.preventDefault();
+				const command = e.key === 'b' ? 'bold' : (e.key === 'i' ? 'italic' : 'underline');
+				document.execCommand(command);
+				firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
+			}
+
+			// Handle backspace and delete keys
+			if (e.key === "Backspace" || e.key === "Delete") {
+				handleInput(e);
+			}
+		});
+
+
+		// Handle button clicks to insert HTML tags
+		const buttons = document.querySelectorAll('.toolbar button');
+		buttons.forEach(button => {
+			button.addEventListener('click', function () {
+				const command = this.getAttribute('data-command');
+				const value = this.getAttribute('data-value');
+				if (command) {
+					currentFormatting = button.dataset.node; // Update currentFormatting variable
+					if (command === 'insertHTML' && value) {
+
+						// Create range variable
+						const range = window.getSelection().getRangeAt(0);
+
+						// Get the selected text (if any)
+						const selectedText = window.getSelection().toString();
+
+						if (selectedText) {
+							// Wrap the selected text with a pre element containing a code element
+							document.execCommand('insertHTML', false, `<pre><code>${selectedText}</code></pre>`);
+						}
+						else {
+							// If no text is selected, insert an empty pre element with a code element
+							const preElement = document.createElement('pre');
+							const codeElement = document.createElement('code');
+							preElement.appendChild(codeElement);
+							range.insertNode(preElement);
+						}
+					}
+					else {
+						document.execCommand(command, false, null);
+					}
+					firstKeypress = false; // Consider a button click as a keypress for placeholder removal
+				}
+			});
+		});
+
+		// Get the containing LI element
+		const getContainingLi = node => {
+			while (node && node.nodeName !== 'LI') {
+				node = node.parentNode;
+			}
+			return node;
+		}
+
+		// Get the current formatting of the selected text
+		const getCurrentFormatting = () => {
+			const selection = window.getSelection();
+			if (selection && selection.rangeCount > 0) {
+				const range = selection.getRangeAt(0);
+				let parentNode = range.commonAncestorContainer;
+				while (parentNode && parentNode.parentNode !== editor) {
+					parentNode = parentNode.parentNode;
+				}
+				if (parentNode && parentNode.nodeName !== 'EDITOR') {
+					return parentNode.nodeName.toLowerCase();
+				}
+			}
+			return null; // No specific formatting found
+		}
+
+		// Handle input events
+		const handleInput = e => {
+			// const editorContent = editor.innerHTML.trim(); // Get the trimmed HTML content of the editor
+
+			// Strip all html tags and check if the content is empty
+			const editorContent = editor.textContent.trim(); // Get the trimmed text content of the editor
+
+			// Get the current selection and range
+			const selection = window.getSelection(); // Get the current selection
+			const range = selection.getRangeAt(0); // Get the range of the selection
+
+			console.log(editorContent);
+
+			// Check if content was deleted and the deletion reached the end
+			if (editorContent === '' && range.startOffset < 5 && range.endOffset < 5) {
+				// Create a new paragraph element and append it to the editor
+				const paragraph = document.createElement('p');
+				console.log(editorContent, range.startOffset, range.endOffset);
+				paragraph.textContent = '\u200B'; // Add a zero-width space to make the paragraph focusable
+				editor.appendChild(paragraph);
+
+				console.log(paragraph);
+				// Set the cursor at the beginning of the paragraph
+				const range = document.createRange();
+				const selection = window.getSelection();
+				range.setStart(paragraph, 0);
+				range.collapse(true);
+				selection.removeAllRanges();
+				selection.addRange(range);
+				editor.focus();
+			}
+		}
+
+		// Handle input events
+		editor.addEventListener('keydown', e => {
+			const key = e.key; // const {key} = event; ES6+
+			if (key === "Backspace" || key === "Delete") {
+				handleInput(e);
+			}
+		});
+
+	});
+</script>
+
+</body>
+</html>
