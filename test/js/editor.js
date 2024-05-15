@@ -222,7 +222,6 @@ document.addEventListener("DOMContentLoaded", function () {
       else {
         console.log('Selection spans across multiple nodes');
         // Iterate over each node within the selection range and apply underline to text nodes
-        const nodesInRange = [];
         let currentNode = startContainer;
 
         // Iterate over each node within the selection range
@@ -233,6 +232,13 @@ document.addEventListener("DOMContentLoaded", function () {
           // Check if the current node is a text node
           if (currentNode.nodeType === Node.TEXT_NODE) {
             nodesInRange.push(currentNode);
+
+            // Check if node.textContent is empty
+            if (!currentNode.textContent.trim()) return;
+
+            const start = currentNode.isSameNode(startContainer) ? startOffset : 0;
+            const end = currentNode.isSameNode(endContainer) ? endOffset : currentNode.length;
+            applyPartialFormatTextNode(command, currentNode, start, end)
           }
           else {
             // Apply formatting to the current node
@@ -245,22 +251,6 @@ document.addEventListener("DOMContentLoaded", function () {
           }
           currentNode = currentNode.nextSibling;
         }
-
-        // Add the last node to the array
-        nodesInRange.push(endContainer);
-
-        // for debugging purposes
-        console.log('Nodes in range:', nodesInRange);
-
-        // Apply formatting to each text node within the selection range
-        nodesInRange.forEach((node, index) => {
-          // Check if node.textContent is empty
-          if (!node.textContent.trim()) return;
-
-          const start = index === 0 ? startOffset : 0;
-          const end = index === nodesInRange.length - 1 ? endOffset : node.length;
-          applyPartialFormatTextNode(command, node, start, end)
-        });
 
         // Clear the selection after applying formatting
         selection.removeAllRanges();
