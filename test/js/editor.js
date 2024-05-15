@@ -229,9 +229,40 @@ document.addEventListener("DOMContentLoaded", function () {
           // breaks the loop if the current node is equal to the end container
           if (currentNode.isSameNode(endContainer)) break;
 
+          console.log('Current Node:', currentNode.nodeName);
+          console.log('Current Parent Node:', currentNode.parentNode.nodeName);
+
+
+          // Check if the current node/current parent node is equal to the command
+          if (currentNode.nodeName === command.toUpperCase()) {
+            console.log('Node is already formatted');
+
+            // remove the current formatting from the node and leave the text content/node
+            const textNode = document.createTextNode(currentNode.textContent);
+            currentNode.replaceWith(textNode);
+            currentNode = textNode;
+
+            // Move to the next iteration
+            currentNode = currentNode.nextSibling;
+            continue;
+          }
+
+          // Check if the current node/current parent node is equal to the command
+          if (currentNode.parentNode.nodeName === command.toUpperCase()) {
+            console.log('Node is already formatted');
+
+            // remove the current formatting from the node and leave the text content/node
+            const textNode = document.createTextNode(currentNode.parentNode.textContent);
+            currentNode.parentNode.replaceWith(textNode);
+
+            // Move to the next iteration
+            currentNode = currentNode.nextSibling;
+            continue;
+          }
+
           // Check if the current node is a text node
           if (currentNode.nodeType === Node.TEXT_NODE) {
-            nodesInRange.push(currentNode);
+            // nodesInRange.push(currentNode);
 
             // Check if node.textContent is empty
             if (!currentNode.textContent.trim()) return;
