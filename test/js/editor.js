@@ -184,8 +184,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if ((e.ctrlKey || e.metaKey) && ["b", "i", "u"].includes(e.key.toLowerCase())){
       e.preventDefault();
 
+      const key = e.key.toLowerCase();
+
       // Get the command for the formatting
-      const command = e.key === "b" ? "strong" : e.key === "i" ? "em" : "u";
+      const command = key === "b" ? "strong" : key === "i" ? "em" : "u";
+
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
 
       // Get the start and end containers and offsets of the range
       const startContainer = range.startContainer;
@@ -193,29 +198,12 @@ document.addEventListener("DOMContentLoaded", function () {
       const startOffset = range.startOffset;
       const endOffset = range.endOffset;
 
+      // console.log('Start Container:', startContainer);
+      // console.log('End Container:', endContainer);
+
       // Check if the selection spans across multiple nodes
-      if (startContainer !== endContainer || startOffset !== endOffset) {
-        // Iterate over each node within the selection range and apply underline to text nodes
-        const nodesInRange = [];
-        let currentNode = startContainer;
-
-        while (currentNode && currentNode !== endContainer.nextSibling) {
-          if (currentNode.nodeType === Node.TEXT_NODE) {
-            nodesInRange.push(currentNode);
-          }
-          currentNode = currentNode.nextSibling;
-        }
-
-        nodesInRange.forEach((node, index) => {
-          const start = index === 0 ? startOffset : 0;
-          const end = index === nodesInRange.length - 1 ? endOffset : node.length;
-          applyUnderlineToTextNode(node, start, end);
-        });
-
-        // Clear the selection after applying formatting
-        selection.removeAllRanges();
-      }
-      else {
+      if (startContainer === endContainer) {
+        console.log('Selection is within the same node');
         // Create the corresponding element for the formatting command
         const element = document.createElement(command);
 
@@ -230,6 +218,52 @@ document.addEventListener("DOMContentLoaded", function () {
         range.selectNodeContents(element);
         selection.removeAllRanges();
         selection.addRange(range);
+      }
+      else {
+        console.log('Selection spans across multiple nodes');
+        // Iterate over each node within the selection range and apply underline to text nodes
+        const nodesInRange = [];
+        let currentNode = startContainer;
+
+        // Iterate over each node within the selection range
+        while (currentNode) {
+          // breaks the loop if the current node is equal to the end container
+          if (currentNode.isSameNode(endContainer)) break;
+
+          // Check if the current node is a text node
+          if (currentNode.nodeType === Node.TEXT_NODE) {
+            nodesInRange.push(currentNode);
+          }
+          else {
+            // Apply formatting to the current node
+            const newRange = document.createRange();
+            newRange.selectNodeContents(currentNode);
+            // selection.removeAllRanges();
+
+            // apply formatting to the text node
+            applyFormatToSelection(command, newRange);
+          }
+          currentNode = currentNode.nextSibling;
+        }
+
+        // Add the last node to the array
+        nodesInRange.push(endContainer);
+
+        // for debugging purposes
+        console.log('Nodes in range:', nodesInRange);
+
+        // Apply formatting to each text node within the selection range
+        nodesInRange.forEach((node, index) => {
+          // Check if node.textContent is empty
+          if (!node.textContent.trim()) return;
+
+          const start = index === 0 ? startOffset : 0;
+          const end = index === nodesInRange.length - 1 ? endOffset : node.length;
+          applyPartialFormatTextNode(command, node, start, end)
+        });
+
+        // Clear the selection after applying formatting
+        selection.removeAllRanges();
       }
 
 
@@ -248,13 +282,15 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Helper function to apply formatting to the selected text
-  const formatTextNode = (command, node, start, end) => {
+  const applyPartialFormatTextNode = (command, node, start, end) => {
     const text = node.textContent;
     const textBeforeSelection = text.substring(0, start);
     const selectedText = text.substring(start, end);
     const textAfterSelection = text.substring(end);
 
-    // Create spans to wrap the text parts
+    console.log('selected text:', selectedText);
+
+    // Create command element to wrap the text parts
     const textBeforeNode = document.createTextNode(textBeforeSelection);
     const selectedTextNode = document.createElement(command);
     selectedTextNode.textContent = selectedText;
@@ -262,6 +298,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Replace the original node with the wrapped parts
     node.replaceWith(textBeforeNode, selectedTextNode, textAfterNode);
+  };
+
+  // apply formatting to the selected text
+  const applyFormatToSelection = (command, range) => {
+    // Create the corresponding element for the formatting command
+    const element = document.createElement(command);
+
+    // Apply formatting directly to the selected text using range and selection
+    element.textContent = range.toString(); // Set the content of the element to the selected text
+
+    // Replace the selected content with the formatted element
+    range.deleteContents();
+    range.insertNode(element);
+
+    // Move the selection to cover the newly inserted element
+    // range.selectNodeContents(element);
+    // selection.removeAllRanges();
+    // selection.addRange(range);
   };
 
   // Handle button clicks to insert HTML tags
