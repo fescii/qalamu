@@ -7,53 +7,105 @@
 <link rel="stylesheet" href="theme.css">
 <!-- <link rel="stylesheet" href="style.css"> -->
 <style>
-	.editor {
-		width: 100%;
+	* {
+		box-sizing: border-box;
+	}
+	html {
+		width: 100vw;
+		max-width: 100vw;
+	}
+	body {
+		width: 100vw;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		font-family: var(--font-read), sans-serif;
+	}
+	section.container {
+		border: 1px solid #ccc;
+		width: 90%;
 		min-height: 300px;
+		height: 300px;
+		margin: 0;
+		padding: 0;
+		position: relative;
+		display: flex;
+		flex-flow: column;
+		align-items: center;
+		justify-content: center;
+	}
+	.editor {
+		min-width: 100%;
+		max-width: 100%;
+		width: 100%;
+		height: calc(100% - 40px);
+		/* height: 100%; */
 		border: 1px solid #ccc;
 		padding: 10px;
 		margin-bottom: 10px;
-		position: relative;
 		color: var(--text-color);
 	}
 
-	span.placeholder {
+	p.placeholder {
 		color: var(--gray-color);
 		font-size: 1rem;
 		font-family: var(--font-read), sans-serif;
 		position: absolute;
 		top: 10px;
 		left: 10px;
+		padding: 0;
+		margin: 0;
+	}
+
+	p.placeholder.inactive {
+		opacity: 0;
+	}
+	.toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		height: 40px;
+		gap: 5px;
+		background-color: var(--bg-color);
+		border: 1px solid #666;
 	}
 </style>
 </head>
 <body>
 
-<div class="editor" contenteditable="true" data-placeholder="Start typing here...">
-	<span class="placeholder">Start typing..</span>
-</div>
-<div class="toolbar">
-	<button data-node="strong" data-command="bold"><strong>B</strong></button>
-	<button data-node="em" data-command="italic"><em>I</em></button>
-	<button data-node="u" data-command="underline"><u>U</u></button>
-	<button data-none="ul" data-command="insertUnorderedList">UL</button>
-	<button data-none="ol" data-command="insertOrderedList">OL</button>
-	<button data-none="j-left" data-command="justifyLeft">Left</button>
-	<button data-none="j-center" data-command="justifyCenter">Center</button>
-	<button data-none="j-right" data-command="justifyRight">Right</button>
-	<button data-none="j-full" data-command="justifyFull">Justify</button>
-	<button data-none="link" data-command="createLink"><u>Link</u></button>
-	<button data-none="hr" data-command="insertHorizontalRule">HR</button>
-	<button data-none="h2" data-command="formatBlock" data-value="h2">H2</button>
-	<button data-none="h3" data-command="formatBlock" data-value="h3">H3</button>
-	<button data-none="p" data-command="formatBlock" data-value="p">P</button>
-	<button data-none="code" data-command="insertHTML" data-value="<code></code>">Code</button>
-</div>
+<section class="container">
+	<p class="placeholder">Start typing..</p>
+	<div class="editor" contenteditable="true" data-placeholder="Start typing here..." spellcheck="true">
+	</div>
+	<div class="toolbar">
+		<button data-node="strong" data-command="bold"><strong>B</strong></button>
+		<button data-node="em" data-command="italic"><em>I</em></button>
+		<button data-node="u" data-command="underline"><u>U</u></button>
+		<button data-none="ul" data-command="insertUnorderedList">UL</button>
+		<button data-none="ol" data-command="insertOrderedList">OL</button>
+		<button data-none="j-left" data-command="justifyLeft">Left</button>
+		<button data-none="j-center" data-command="justifyCenter">Center</button>
+		<button data-none="j-right" data-command="justifyRight">Right</button>
+		<button data-none="j-full" data-command="justifyFull">Justify</button>
+		<button data-none="link" data-command="createLink"><u>Link</u></button>
+		<button data-none="hr" data-command="insertHorizontalRule">HR</button>
+		<button data-none="h2" data-command="formatBlock">H2</button>
+		<button data-none="h3" data-command="formatBlock">H3</button>
+		<button data-none="p" data-command="formatBlock">P</button>
+		<button data-none="code" data-command="insertHTML">Code</button>
+	</div>
+</section>
+
 
 <script>
 	document.addEventListener("DOMContentLoaded", function() {
 		// Get the editable div
 		const editor = document.querySelector('.editor');
+		const section = document.querySelector('section.container');
+		const placeholder = section.querySelector('p.placeholder');
 
 
 		// Handle key press events
@@ -66,9 +118,8 @@
 
 			// Check if it's the first key press and remove the placeholder
 			if (firstKeypress) {
-				const placeholder = editor.querySelector('span.placeholder');
 				if (placeholder) {
-					placeholder.remove();
+					placeholder.classList.add('inactive');
 				}
 				firstKeypress = false;
 
@@ -183,11 +234,6 @@
 				document.execCommand(command);
 				firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
 			}
-
-			// Handle backspace and delete keys
-			if (e.key === "Backspace" || e.key === "Delete") {
-				handleInput(e);
-			}
 		});
 
 
@@ -260,15 +306,32 @@
 
 			// Get the current selection and range
 			const selection = window.getSelection(); // Get the current selection
-			const range = selection.getRangeAt(0); // Get the range of the selection
+			const outerRange = selection.getRangeAt(0); // Get the range of the selection
 
-			console.log(editorContent);
+			// For debugging purposes
+			// console.log(`
+			//   Content: ${editorContent} -
+			// 	Length: ${editorContent.length} -
+			// 	Start: ${outerRange.startOffset} -
+			// 	End: ${outerRange.endOffset}
+			// `);
+
+
+			// get content length
+			const contentLength = editorContent.length;
 
 			// Check if content was deleted and the deletion reached the end
-			if (editorContent === '' && range.startOffset < 5 && range.endOffset < 5) {
+			if (contentLength <=1 && outerRange.startOffset < 5 && outerRange.endOffset < 5) {
+
+				// Clear editor contents
+				editor.innerHTML = '';
+
+				// Show placeholder
+				placeholder.classList.remove('inactive');
+
 				// Create a new paragraph element and append it to the editor
 				const paragraph = document.createElement('p');
-				console.log(editorContent, range.startOffset, range.endOffset);
+				// console.log(editorContent, outerRange.startOffset, outerRange.endOffset);
 				paragraph.textContent = '\u200B'; // Add a zero-width space to make the paragraph focusable
 				editor.appendChild(paragraph);
 
@@ -285,11 +348,13 @@
 		}
 
 		// Handle input events
-		editor.addEventListener('keydown', e => {
-			const key = e.key; // const {key} = event; ES6+
-			if (key === "Backspace" || key === "Delete") {
-				handleInput(e);
-			}
+		editor.addEventListener('input', e => {
+			// const key = e.key; // const {key} = event; ES6+
+			// if (key === "Backspace" || key === "Delete") {
+			// 	handleInput(e);
+			// }
+
+			handleInput(e);
 		});
 
 	});
