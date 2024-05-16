@@ -80,8 +80,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const cursorOffset = range.startOffset;
         const nodeLength = currentNode.length;
 
-        // Check if the cursor is at the end of the text node and the next node is not br element
-        if (cursorOffset === nodeLength) {
+        console.log("Cursor Offset:", cursorOffset);
+        console.log("Node Length:", nodeLength);
+        console.log("Current Node:", currentNode);
+
+        const isBlock = isBlockElement(currentNode.nextSibling);
+
+        console.log("Is Block Element:", isBlock);
+
+        // Check if the cursor is at the end of the node and the node is block element
+        if (cursorOffset === nodeLength && isBlock) {
           // Check if there is next sibling
           const nextSibling = currentNode.nextSibling;
 
@@ -93,7 +101,8 @@ document.addEventListener("DOMContentLoaded", function () {
           range.setStart(paragraph, 0);
           range.collapse(true);
           editor.focus();
-        } else {
+        }
+        else {
           console.log("Cursor is not at the end of the text node");
           // Cursor is between contents, insert <br> manually
           const br = document.createElement("br");
@@ -103,7 +112,8 @@ document.addEventListener("DOMContentLoaded", function () {
           selection.removeAllRanges();
           selection.addRange(range);
         }
-      } else {
+      }
+      else {
         console.log("Cursor is not inside a block element");
         const range = window.getSelection().getRangeAt(0);
         const brElement = document.createElement("br");
@@ -113,6 +123,16 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
   });
+
+  // Check if a node is a block element
+  const isBlockElement = (node) => {
+    // Check if a node is not null
+    if (!node) return true;
+
+    return ['address', 'article', 'aside', 'blockquote', 'details', 'dialog', 'dd', 'div', 'dl', 'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'].includes(
+      node.nodeName.toLowerCase()
+    );
+  };
 
   // handle paste event, and remove place holder accordingly
   editor.addEventListener("paste", (e) => {
@@ -228,6 +248,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       else {
+        // Get the cut elements from the selection
+        const cutElements = getCutElements(range);
+
+        console.log('Cut Elements:', cutElements);
+
+
         // get all the nodes within the selection range
         const nodesInRange = traverseNodes(selection);
 
@@ -235,7 +261,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log('Selection Range:', range);
 
         // Remove similar formatting from the selected nodes
-        const removed = removeFormatting(nodesInRange, command, range, selection);
+        const _skip = removeFormatting(nodesInRange, command, range, selection);
 
         // Apply formatting surrounding the selected area
         applyFormatToSelection(command, range);
@@ -334,7 +360,6 @@ document.addEventListener("DOMContentLoaded", function () {
     ranges.forEach(range => selection.addRange(range));
   }
 
-
   // Removing formatting from the selected nodes
   const removeFormatting = (nodes, command, range, selection) => {
     const targetElements = nodes.filter(
@@ -358,6 +383,31 @@ document.addEventListener("DOMContentLoaded", function () {
       // Return false if no formatting was removed
       return false;
     }
+  }
+
+  // get cut elements from a selection
+  const getCutElements = (range) => {
+    const cutElements = [];
+    const treeWalker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ELEMENT, null, false);
+
+    while (treeWalker.nextNode()) {
+      const node = treeWalker.currentNode;
+      const startOffset = range.startOffset;
+      const endOffset = range.endOffset;
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const nodeText = node.textContent || node.innerText || ''; // Get text content of element node
+        const nodeLength = nodeText.length;
+
+        // Check if the selection cuts through this element node
+        if ((startOffset > 0 || endOffset < nodeLength) && startOffset < nodeLength && endOffset > 0) {
+          cutElements.push(node);
+        }
+      }
+    }
+
+    // Return the cut elements
+    return cutElements;
   }
 
   // Handle button clicks to insert HTML tags
