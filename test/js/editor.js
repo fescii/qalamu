@@ -192,6 +192,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
 
+      // Check if the selection is empty
+      if (!range.toString().trim()) return;
+
       // Get the start and end containers and offsets of the range
       const startContainer = range.startContainer;
       const endContainer = range.endContainer;
@@ -204,99 +207,41 @@ document.addEventListener("DOMContentLoaded", function () {
       // Check if the selection spans across multiple nodes
       if (startContainer === endContainer) {
         console.log('Selection is within the same node');
-        // Create the corresponding element for the formatting command
-        const element = document.createElement(command);
 
-        // Apply formatting directly to the selected text using range and selection
-        element.textContent = range.toString(); // Set the content of the element to the selected text
+        // If the format is already applied to the node or the child nodes remove them
+        const nodesInRange = traverseNodes(selection);
 
-        // Replace the selected content with the formatted element
-        range.deleteContents();
-        range.insertNode(element);
+        // Remove formatting from the selected nodes
+        const removed = removeFormatting(nodesInRange, command, range, selection);
 
-        // Move the selection to cover the newly inserted element
-        range.selectNodeContents(element);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        // Check if the formatting was removed
+        if (removed) {
+          // Clear the selection after removing formatting
+          selection.removeAllRanges();
+        }
+        else {
+          // Apply formatting to the selected text
+          applyFormatToSelection(command, range);
+
+          // Clear the selection after applying formatting
+          selection.removeAllRanges();
+        }
       }
       else {
-        console.log('Selection spans across multiple nodes');
-        // Iterate over each node within the selection range and apply underline to text nodes
-        let currentNode = startContainer;
+        // get all the nodes within the selection range
+        const nodesInRange = traverseNodes(selection);
 
-        // Iterate over each node within the selection range
-        while (currentNode) {
-          // breaks the loop if the current node is equal to the end container
-          if (currentNode.isSameNode(endContainer)) break;
+        console.log('Nodes in Range:', nodesInRange);
+        console.log('Selection Range:', range);
 
-          console.log('Current Node:', currentNode.nodeName);
-          console.log('Current Parent Node:', currentNode.parentNode.nodeName);
+        // Remove similar formatting from the selected nodes
+        const removed = removeFormatting(nodesInRange, command, range, selection);
 
+        // Apply formatting surrounding the selected area
+        applyFormatToSelection(command, range);
 
-          // Check if the current node/current parent node is equal to the command
-          if (currentNode.nodeName === command.toUpperCase()) {
-            console.log('Node is already formatted');
-
-            // remove the current formatting from the node and leave the text content/node
-            const textNode = document.createTextNode(currentNode.textContent);
-            currentNode.replaceWith(textNode);
-            currentNode = textNode;
-
-            // Move to the next iteration
-            currentNode = currentNode.nextSibling;
-            continue;
-          }
-
-          // Check if the current node/current parent node is equal to the command
-          if (currentNode.parentNode.nodeName === command.toUpperCase()) {
-            console.log('Node is already formatted');
-
-            // remove the current formatting from the node and leave the text content/node
-            const textNode = document.createTextNode(currentNode.parentNode.textContent);
-            currentNode.parentNode.replaceWith(textNode);
-
-            // Move to the next iteration
-            currentNode = currentNode.nextSibling;
-            continue;
-          }
-
-          // Check if the current node is a text node
-          if (currentNode.nodeType === Node.TEXT_NODE) {
-            // nodesInRange.push(currentNode);
-
-            // Check if node.textContent is empty
-            if (!currentNode.textContent.trim()) return;
-
-            const start = currentNode.isSameNode(startContainer) ? startOffset : 0;
-            const end = currentNode.isSameNode(endContainer) ? endOffset : currentNode.length;
-            applyPartialFormatTextNode(command, currentNode, start, end)
-          }
-          else {
-            // Apply formatting to the current node
-            const newRange = document.createRange();
-            newRange.selectNodeContents(currentNode);
-            // selection.removeAllRanges();
-
-            // apply formatting to the text node
-            applyFormatToSelection(command, newRange);
-          }
-          currentNode = currentNode.nextSibling;
-        }
-
-        // Clear the selection after applying formatting
         selection.removeAllRanges();
       }
-
-
-
-
-
-      // const selection = window.getSelection();
-      // const range = selection.getRangeAt(0);
-
-      // const command = e.key === "b" ? "strong" : e.key === "i" ? "em" : "u";
-
-      
 
       firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
     }
@@ -326,18 +271,94 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create the corresponding element for the formatting command
     const element = document.createElement(command);
 
-    // Apply formatting directly to the selected text using range and selection
-    element.textContent = range.toString(); // Set the content of the element to the selected text
+    const selectedContent = range.extractContents();
+    element.appendChild(selectedContent);
 
     // Replace the selected content with the formatted element
     range.deleteContents();
     range.insertNode(element);
-
-    // Move the selection to cover the newly inserted element
-    // range.selectNodeContents(element);
-    // selection.removeAllRanges();
-    // selection.addRange(range);
   };
+
+
+  // Helper function for recursive traversal
+  const traverseNodes = selection => {
+    const nodes = [];
+    const range = selection.getRangeAt(0);
+    const treeWalker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ALL, {
+      acceptNode: node => range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    }, false);
+
+    while (treeWalker.nextNode()) {
+      nodes.push(range.commonAncestorContainer, treeWalker.currentNode);
+    }
+
+    return nodes;
+  }
+
+  // Node formatting removal without affecting the selection range
+  const removeNodeFormatting = (selection, range, targetNode) => {
+    // create an array to hold ranges of the selected nodes
+    const ranges = [];
+    const rangeCount = selection.rangeCount;
+
+    // Split the section into multiple ranges if the selection spans across multiple nodes
+    let i = 0;
+    for (i; i < rangeCount; i++) {
+      const range = selection.getRangeAt(i);
+      // Skip ranges that don't intersect with the target node
+      if (!range.intersectsNode(targetNode)) continue;
+    }
+
+    // Split the range into two: before and after the target node
+    const beforeRange = document.createRange();
+    beforeRange.setStart(range.startContainer, range.startOffset);
+    beforeRange.setEnd(targetNode, 0);
+
+    const afterRange = document.createRange();
+    afterRange.setStart(targetNode, 0);
+    afterRange.setEnd(range.endContainer, range.endOffset);
+
+    // Add the ranges to the array
+    ranges.push(beforeRange, afterRange);
+
+    // Replace the target node with its child nodes
+    while (targetNode.firstChild) {
+      targetNode.parentNode.insertBefore(targetNode.firstChild, targetNode);
+    }
+    // Remove the target node
+    targetNode.parentNode.removeChild(targetNode);
+
+
+    // Restore the selection with the modified ranges
+    selection.removeAllRanges();
+    ranges.forEach(range => selection.addRange(range));
+  }
+
+
+  // Removing formatting from the selected nodes
+  const removeFormatting = (nodes, command, range, selection) => {
+    const targetElements = nodes.filter(
+      (node) => node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === command
+    );
+
+    if (targetElements.length > 0) {
+      // Directly remove each target element, leaving its child nodes intact
+      for (const element of targetElements) {
+        // Remove the node formatting
+        removeNodeFormatting(selection, range, element);
+      }
+
+      // log the target elements
+      console.log('Target Elements:', targetElements);
+
+      // Return true if the formatting was removed
+      return true;
+    }
+    else {
+      // Return false if no formatting was removed
+      return false;
+    }
+  }
 
   // Handle button clicks to insert HTML tags
   const buttons = document.querySelectorAll(".toolbar button");
