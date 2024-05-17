@@ -287,20 +287,22 @@ document.addEventListener("DOMContentLoaded", function () {
       firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
     }
 
-    // Handle undo combination: ctrl+z or cmd+z
-    else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+    // Handle undo, and redo combinations: Undo - ctrl+z or cmd+z, Redo - ctrl+y or cmd+y
+    else if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
       e.preventDefault();
 
-      // check if undo combination is pressed
-      undo();
-    }
+      // Check if undo combination is pressed
+      if (e.key.toLowerCase() === 'z') {
+        undo();
+      }
 
-    // Handle redo combination: ctrl+y or cmd+y
-    else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
-      e.preventDefault();
+      // Check if redo combination is pressed
+      else if (e.key.toLowerCase() === 'y') {
+        redo();
+      }
 
-      // check if redo combination is pressed
-      redo();
+      // Change the isUndoRedoAction to false
+      isUndoRedoAction = false;
     }
   });
 
