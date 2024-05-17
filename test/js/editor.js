@@ -4,9 +4,43 @@ document.addEventListener("DOMContentLoaded", function () {
   const section = document.querySelector("section.container");
   const placeholder = section.querySelector("p.placeholder");
 
+  // Define redo and undo stacks and a variable to keep track of the current action
+  const undoStack = [];
+  const redoStack = [];
+  let isUndoRedoAction = false;
+
+  // Save the initial state in the undo stack (clone the initial state)
+  const initialContent = editor.innerHTML;
+
+  // clone the initial state
+  undoStack.push([{ type: 'childList', target: editor, oldValue: initialContent, addedNodes: [], removedNodes: [] }]);
+
+  // Create a new MutationObserver to observe changes in the editable content
+  const observer = new MutationObserver((mutations) => {
+    if (!isUndoRedoAction) {
+      const snapshot = storeMutations(mutations);
+      undoStack.push(snapshot);
+      redoStack.length = 0; // Clear the redo stack on new changes
+
+      // Log the undo and redo stack
+      console.log('Undo Stack:', undoStack);
+      console.log('Redo Stack:', redoStack);
+    }
+  });
+
+  // Observe changes in the editable content
+  observer.observe(editor, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    characterDataOldValue: true,
+    attributes: true,
+    attributeOldValue: true
+  });
+
+
   // Handle key press events
   let firstKeypress = true;
-  let currentFormatting = "p";
 
   // Handle key press events
   editor.addEventListener("keypress", (e) => {
@@ -39,9 +73,7 @@ document.addEventListener("DOMContentLoaded", function () {
       e.preventDefault(); // Prevent default new line behavior
 
       // get the current formatting of the selected text
-      currentFormatting = getCurrentFormatting();
-
-      console.log(currentFormatting);
+      const currentFormatting = getCurrentFormatting();
 
       // Check is formatting is ordered list or unordered list
       if (currentFormatting === "ol" || currentFormatting === "ul") {
@@ -77,20 +109,20 @@ document.addEventListener("DOMContentLoaded", function () {
         const cursorOffset = range.startOffset;
         const nodeLength = currentNode.length;
 
-        console.log("Cursor Offset:", cursorOffset);
-        console.log("Node Length:", nodeLength);
-        console.log("Current Node:", currentNode);
+        // console.log("Cursor Offset:", cursorOffset);
+        // console.log("Node Length:", nodeLength);
+        // console.log("Current Node:", currentNode);
 
         const isBlock = isBlockElement(currentNode.nextSibling);
 
-        console.log("Is Block Element:", isBlock);
+        // console.log("Is Block Element:", isBlock);
 
         // Check if the cursor is at the end of the node and the node is block element
         if (cursorOffset === nodeLength && isBlock) {
           // Check if there is next sibling
           const nextSibling = currentNode.nextSibling;
 
-          console.log("cursor is at the end of the text node");
+          // console.log("cursor is at the end of the text node");
           // If the cursor is at the end of the text node, insert a new paragraph element
           const paragraph = document.createElement("p");
           paragraph.textContent = "\u200B"; // Zero-width space for focusability
@@ -100,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
           editor.focus();
         }
         else {
-          console.log("Cursor is not at the end of the text node");
+          // console.log("Cursor is not at the end of the text node");
           // Cursor is between contents, insert <br> manually
           const br = document.createElement("br");
           range.insertNode(br);
@@ -111,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       else {
-        console.log("Cursor is not inside a block element");
+        // console.log("Cursor is not inside a block element");
         const range = window.getSelection().getRangeAt(0);
         const brElement = document.createElement("br");
         range.insertNode(brElement);
@@ -254,6 +286,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
       firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
     }
+
+    // Handle undo combination: ctrl+z or cmd+z
+    else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      e.preventDefault();
+
+      // check if undo combination is pressed
+      undo();
+    }
+
+    // Handle redo combination: ctrl+y or cmd+y
+    else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+      e.preventDefault();
+
+      // check if redo combination is pressed
+      redo();
+    }
   });
 
   // apply formatting to the selected text
@@ -268,7 +316,6 @@ document.addEventListener("DOMContentLoaded", function () {
     range.deleteContents();
     range.insertNode(element);
   };
-
 
   // Helper function for recursive traversal
   const traverseNodes = (range, command, startContainer, endContainer) => {
@@ -370,30 +417,74 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // get cut elements from a selection
-  const getCutElements = (range) => {
-    const cutElements = [];
-    const treeWalker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ELEMENT, null, false);
+  // Function to store mutations
+  const storeMutations = mutations => {
+    const snapshot = mutations.map(mutation => {
+      if (mutation.type === 'characterData') {
+        return {
+          type: 'characterData',
+          target: mutation.target,
+          oldValue: mutation.oldValue,
+          newValue: mutation.target.data
+        };
+      } else if (mutation.type === 'childList') {
+        return {
+          type: 'childList',
+          target: mutation.target,
+          addedNodes: Array.from(mutation.addedNodes),
+          removedNodes: Array.from(mutation.removedNodes)
+        };
+      }
+      return null;
+    });
+    return snapshot;
+  }
 
-    while (treeWalker.nextNode()) {
-      const node = treeWalker.currentNode;
-      const startOffset = range.startOffset;
-      const endOffset = range.endOffset;
-
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const nodeText = node.textContent || node.innerText || ''; // Get text content of element node
-        const nodeLength = nodeText.length;
-
-        // Check if the selection cuts through this element node
-        if ((startOffset > 0 || endOffset < nodeLength) && startOffset < nodeLength && endOffset > 0) {
-          cutElements.push(node);
+  // Function to apply mutations
+  const applyMutations = (mutations, undo = false) => {
+    mutations.forEach(mutation => {
+      if (mutation.type === 'characterData') {
+        if (undo) {
+          console.log('Old Value:', mutation.oldValue);
+          mutation.target.data = mutation.oldValue;
+        } else {
+          mutation.target.data = mutation.newValue;
+        }
+      } else if (mutation.type === 'childList') {
+        if (undo) {
+          mutation.addedNodes.forEach(node => node.remove());
+          mutation.removedNodes.forEach(node => mutation.target.appendChild(node));
+        } else {
+          mutation.removedNodes.forEach(node => node.remove());
+          mutation.addedNodes.forEach(node => mutation.target.appendChild(node));
         }
       }
-    }
-
-    // Return the cut elements
-    return cutElements;
+    });
   }
+
+  // Function to undo the last action
+  const undo = () => {
+    if (undoStack.length > 1) {
+      const mutations = undoStack.pop();
+      redoStack.push(mutations);
+      isUndoRedoAction = true;
+      applyMutations(mutations, true);
+      // isUndoRedoAction = false;
+    }
+  }
+
+  // Function to redo the last action
+  const redo = () => {
+    if (redoStack.length > 0) {
+      const mutations = redoStack.pop();
+      undoStack.push(mutations);
+      isUndoRedoAction = true;
+      applyMutations(mutations, false);
+      // isUndoRedoAction = false;
+    }
+  }
+
+
 
   // Handle button clicks to insert HTML tags
   const buttons = document.querySelectorAll(".toolbar button");
