@@ -73,9 +73,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // Get the node where the cursor is positioned
         const currentNode = range.startContainer;
 
-        // get the parent node of the text node
-        const parentNode = currentNode.parentNode;
-
         // If the cursor is inside a text node, check its position within the <p> element
         const cursorOffset = range.startOffset;
         const nodeLength = currentNode.length;
@@ -212,27 +209,28 @@ document.addEventListener("DOMContentLoaded", function () {
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
 
+      // Get the first node and the last node of the selection
+      const startNode = range.startContainer;
+      const endNode = range.endContainer;
+
+      console.log('Start Node:', startNode);
+      console.log('End Node:', endNode);
+
       // Check if the selection is empty
       if (!range.toString().trim()) return;
 
       // Get the start and end containers and offsets of the range
       const startContainer = range.startContainer;
       const endContainer = range.endContainer;
-      const startOffset = range.startOffset;
-      const endOffset = range.endOffset;
 
-      // console.log('Start Container:', startContainer);
-      // console.log('End Container:', endContainer);
+      // If the format is already applied to the node or the child nodes remove them
+      const nodesInRange = traverseNodes(range, command, startContainer, endContainer);
+
+      // Remove formatting from the selected nodes
+      const removed = removeFormatting(nodesInRange, command, range, selection);
 
       // Check if the selection spans across multiple nodes
       if (startContainer === endContainer) {
-        console.log('Selection is within the same node');
-
-        // If the format is already applied to the node or the child nodes remove them
-        const nodesInRange = traverseNodes(selection);
-
-        // Remove formatting from the selected nodes
-        const removed = removeFormatting(nodesInRange, command, range, selection);
 
         // Check if the formatting was removed
         if (removed) {
@@ -248,21 +246,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       else {
-        // Get the cut elements from the selection
-        const cutElements = getCutElements(range);
-
-        console.log('Cut Elements:', cutElements);
-
-
-        // get all the nodes within the selection range
-        const nodesInRange = traverseNodes(selection);
-
-        console.log('Nodes in Range:', nodesInRange);
-        console.log('Selection Range:', range);
-
-        // Remove similar formatting from the selected nodes
-        const _skip = removeFormatting(nodesInRange, command, range, selection);
-
         // Apply formatting surrounding the selected area
         applyFormatToSelection(command, range);
 
@@ -272,25 +255,6 @@ document.addEventListener("DOMContentLoaded", function () {
       firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
     }
   });
-
-  // Helper function to apply formatting to the selected text
-  const applyPartialFormatTextNode = (command, node, start, end) => {
-    const text = node.textContent;
-    const textBeforeSelection = text.substring(0, start);
-    const selectedText = text.substring(start, end);
-    const textAfterSelection = text.substring(end);
-
-    console.log('selected text:', selectedText);
-
-    // Create command element to wrap the text parts
-    const textBeforeNode = document.createTextNode(textBeforeSelection);
-    const selectedTextNode = document.createElement(command);
-    selectedTextNode.textContent = selectedText;
-    const textAfterNode = document.createTextNode(textAfterSelection);
-
-    // Replace the original node with the wrapped parts
-    node.replaceWith(textBeforeNode, selectedTextNode, textAfterNode);
-  };
 
   // apply formatting to the selected text
   const applyFormatToSelection = (command, range) => {
@@ -307,9 +271,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
   // Helper function for recursive traversal
-  const traverseNodes = selection => {
+  const traverseNodes = (range, command, startContainer, endContainer) => {
+
+    // Check if start and end containers are the same and it's a text node
+    if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+      const parentElement = startContainer.parentNode;
+
+      // Check if the parent element is a <command> and it contains only one text node
+      if (parentElement.tagName.toLowerCase() === command && parentElement.childNodes.length === 1 && parentElement.firstChild === startContainer) {
+        return [parentElement]; // Include the <strong> element
+      }
+    }
+
+    // Create an array to hold the nodes
     const nodes = [];
-    const range = selection.getRangeAt(0);
+
+    // Create a tree walker to traverse the common ancestor container
     const treeWalker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ALL, {
       acceptNode: node => range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
     }, false);
@@ -317,6 +294,12 @@ document.addEventListener("DOMContentLoaded", function () {
     while (treeWalker.nextNode()) {
       nodes.push(range.commonAncestorContainer, treeWalker.currentNode);
     }
+
+    // log common ancestor container
+    console.log('Common Ancestor Container:', range.commonAncestorContainer);
+
+    // log common ancestor container parent node
+    console.log('Common Ancestor Container Parent Node:', range.commonAncestorContainer.parentNode);
 
     return nodes;
   }
@@ -351,9 +334,11 @@ document.addEventListener("DOMContentLoaded", function () {
     while (targetNode.firstChild) {
       targetNode.parentNode.insertBefore(targetNode.firstChild, targetNode);
     }
-    // Remove the target node
-    targetNode.parentNode.removeChild(targetNode);
 
+    // Remove the target node if it's not nul
+    if (targetNode.parentNode) {
+      targetNode.parentNode.removeChild(targetNode);
+    }
 
     // Restore the selection with the modified ranges
     selection.removeAllRanges();
