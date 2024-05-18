@@ -17,8 +17,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Create a new MutationObserver to observe changes in the editable content
   const observer = new MutationObserver((mutations) => {
+    console.log('isUdoRedoAction inside:', isUndoRedoAction);
     if (!isUndoRedoAction) {
       const snapshot = storeMutations(mutations);
+      console.log('Snapshot:', snapshot);
       undoStack.push(snapshot);
       redoStack.length = 0; // Clear the redo stack on new changes
 
@@ -28,15 +30,56 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Observe changes in the editable content
-  observer.observe(editor, {
+  // declare observer options
+  const observerOptions = {
     childList: true,
     subtree: true,
     characterData: true,
     characterDataOldValue: true,
     attributes: true,
     attributeOldValue: true
-  });
+  };
+
+  // Observe changes in the editable content
+  observer.observe(editor, observerOptions);
+
+
+  // Save the current selection: cursor position
+  const saveSelection = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      return {
+        startContainer: range.startContainer,
+        startOffset: range.startOffset,
+        endContainer: range.endContainer,
+        endOffset: range.endOffset
+      };
+    }
+    return null;
+  }
+
+  // Restore the selection: cursor position
+  const restoreSelection = savedSelection => {
+    if (savedSelection) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      const range = document.createRange();
+
+      // Ensure the offsets are within valid bounds
+      const getValidOffset = (node, offset) => {
+        const maxOffset = (node.nodeType === Node.TEXT_NODE) ? node.length : node.childNodes.length;
+        return Math.max(0, Math.min(offset, maxOffset));
+      };
+
+      const startOffset = getValidOffset(savedSelection.startContainer, savedSelection.startOffset);
+      const endOffset = getValidOffset(savedSelection.endContainer, savedSelection.endOffset);
+
+      range.setStart(savedSelection.startContainer, startOffset);
+      range.setEnd(savedSelection.endContainer, endOffset);
+      selection.addRange(range);
+    }
+  }
 
 
   // Handle key press events
@@ -300,9 +343,6 @@ document.addEventListener("DOMContentLoaded", function () {
       else if (e.key.toLowerCase() === 'y') {
         redo();
       }
-
-      // Change the isUndoRedoAction to false
-      isUndoRedoAction = false;
     }
   });
 
@@ -421,46 +461,61 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Function to store mutations
   const storeMutations = mutations => {
-    const snapshot = mutations.map(mutation => {
+    return mutations.map(mutation => {
       if (mutation.type === 'characterData') {
         return {
           type: 'characterData',
           target: mutation.target,
           oldValue: mutation.oldValue,
-          newValue: mutation.target.data
+          newValue: mutation.target.data,
+          selection: saveSelection()  // Save selection here
         };
       } else if (mutation.type === 'childList') {
         return {
           type: 'childList',
           target: mutation.target,
           addedNodes: Array.from(mutation.addedNodes),
-          removedNodes: Array.from(mutation.removedNodes)
+          removedNodes: Array.from(mutation.removedNodes),
+          previousSibling: mutation.previousSibling,
+          nextSibling: mutation.nextSibling,
+          selection: saveSelection()  // Save selection here
         };
       }
       return null;
-    });
-    return snapshot;
+    }).filter(mutation => mutation !== null);
   }
 
   // Function to apply mutations
   const applyMutations = (mutations, undo = false) => {
     mutations.forEach(mutation => {
+      // console.log('isUdoRedoAction:', isUndoRedoAction);
       if (mutation.type === 'characterData') {
-        if (undo) {
-          console.log('Old Value:', mutation.oldValue);
-          mutation.target.data = mutation.oldValue;
-        } else {
-          mutation.target.data = mutation.newValue;
-        }
+        mutation.target.data = undo ? mutation.oldValue : mutation.newValue;
       } else if (mutation.type === 'childList') {
         if (undo) {
           mutation.addedNodes.forEach(node => node.remove());
-          mutation.removedNodes.forEach(node => mutation.target.appendChild(node));
+          mutation.removedNodes.forEach(node => {
+            if (mutation.nextSibling) {
+              target.insertBefore(node, mutation.nextSibling);
+            } else {
+              target.appendChild(node);
+            }
+          });
         } else {
           mutation.removedNodes.forEach(node => node.remove());
-          mutation.addedNodes.forEach(node => mutation.target.appendChild(node));
+          mutation.addedNodes.forEach(node => {
+            if (mutation.nextSibling) {
+              target.insertBefore(node, mutation.nextSibling);
+            } else {
+              target.appendChild(node);
+            }
+          });
         }
       }
+
+      // Restore selection
+      restoreSelection(mutation.selection);
+      // console.log('isUdoRedoAction:', isUndoRedoAction);
     });
   }
 
@@ -470,8 +525,16 @@ document.addEventListener("DOMContentLoaded", function () {
       const mutations = undoStack.pop();
       redoStack.push(mutations);
       isUndoRedoAction = true;
+
+      // disconnect the observer
+      observer.disconnect();
+
+      // apply mutations
       applyMutations(mutations, true);
-      // isUndoRedoAction = false;
+      isUndoRedoAction = false;
+
+      // reconnect the observer
+      observer.observe(editor, observerOptions);
     }
   }
 
@@ -481,8 +544,16 @@ document.addEventListener("DOMContentLoaded", function () {
       const mutations = redoStack.pop();
       undoStack.push(mutations);
       isUndoRedoAction = true;
+
+      // disconnect the observer
+      observer.disconnect();
+
+      // apply mutations
       applyMutations(mutations, false);
-      // isUndoRedoAction = false;
+      isUndoRedoAction = false;
+
+      // reconnect the observer
+      observer.observe(editor, observerOptions);
     }
   }
 
@@ -495,7 +566,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const command = this.getAttribute("data-command");
       const value = this.getAttribute("data-value");
       if (command) {
-        currentFormatting = button.dataset.node; // Update currentFormatting variable
+        let currentFormatting = button.dataset.node; // Update currentFormatting variable
         if (command === "insertHTML" && value) {
           // Create range variable
           const range = window.getSelection().getRangeAt(0);
