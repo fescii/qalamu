@@ -441,7 +441,7 @@ document.addEventListener("DOMContentLoaded", function () {
       startContainer.parentNode.nodeName !== command &&
 
       // This check if the selection starts and ends at the same parent node
-      !(startOffset === 0 && endOffset === endContainer.length)
+      (!(startOffset === 0 && endOffset === endContainer.length) || range.commonAncestorContainer.nodeType === Node.TEXT_NODE)
     ) {
       return true;
     }
