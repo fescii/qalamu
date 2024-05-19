@@ -319,15 +319,17 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       // Check if the selection is a command element or is fully enclosed by a command element
       else {
+        console.log('Selection:', selection);
         // Check if the selection is a command element or is fully enclosed by a command element
         const {
           result,
           node
         } = isCommandElement(range, command);
 
+        console.log('Node', node)
+
         console.log(`
           result: ${result}
-          node: ${node}
         `)
 
 
@@ -335,7 +337,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (result) {
           console.log('selection is a command element or is fully enclosed by a command element')
           // Replace the target node with its child node
-          node.parentNode.insertBefore(node.firstChild, node);
+          node.replaceWith(...node.childNodes);
 
           // Clear the selection after removing formatting
           selection.removeAllRanges();
@@ -456,6 +458,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
+    console.log('StartOffset:', startOffset);
+    console.log('EndOffset:', endOffset);
+    console.log('Chi:', endContainer.length);
+
     const startIsEm = startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command;
     const endIsEm = endContainer.nodeType === Node.ELEMENT_NODE && endContainer.tagName.toLowerCase() === command;
 
@@ -483,10 +489,10 @@ document.addEventListener("DOMContentLoaded", function () {
       startContainer.parentNode.nodeType === Node.ELEMENT_NODE &&
 
       // This check if the parent node is a command element
-      startContainer.parentNode.tagName.toLowerCase() === command &&
+      startContainer.parentNode.nodeName.toLowerCase() === command &&
 
-      // This check if the selection starts and ends at the same parent node
-      startOffset === 0 && endOffset === endContainer.childNodes.length
+      // This check if the selection starts at the startContainer offset and ends at the endContainer's end offset
+      startOffset === 0 && endOffset === endContainer.length
     ) {
       return {
         result: true,
