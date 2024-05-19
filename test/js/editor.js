@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // Observe changes in the editable content
-  observer.observe(editor, observerOptions);
+  // observer.observe(editor, observerOptions);
 
 
   // Save the current selection: cursor position
@@ -284,35 +284,23 @@ document.addEventListener("DOMContentLoaded", function () {
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
 
-      // Get the first node and the last node of the selection
-      const startNode = range.startContainer;
-      const endNode = range.endContainer;
-
-      console.log('Start Node:', startNode);
-      console.log('End Node:', endNode);
-
-      // Check if the selection is empty
-      if (!range.toString().trim()) return;
 
       // Get the start and end containers and offsets of the range
       const startContainer = range.startContainer;
       const endContainer = range.endContainer;
 
-      // If the format is already applied to the node or the child nodes remove them
-      const nodesInRange = traverseNodes(range, command, startContainer, endContainer);
 
-      // Remove formatting from the selected nodes
-      const removed = removeFormatting(nodesInRange, command, range, selection);
-
-      // Check if the selection spans across multiple nodes
-      if (startContainer === endContainer) {
-
-        // Check if the formatting was removed
-        if (removed) {
-          // Clear the selection after removing formatting
-          selection.removeAllRanges();
+      // Check if selection is empty: iff empty just insert the formatting to the selection
+      if (selection.isCollapsed) {
+        console.log('The selection is collapse', selection);
+        // Check if the empty selection is equal to the command element
+        if(startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command) {
+          console.log('The selection is collapse but format is already applied')
+          // Remove the empty formatting from the dom
+          startContainer.remove();
         }
         else {
+          console.log('The selection is collapse but not formatted!')
           // Apply formatting to the selected text
           applyFormatToSelection(command, range);
 
@@ -320,11 +308,51 @@ document.addEventListener("DOMContentLoaded", function () {
           selection.removeAllRanges();
         }
       }
-      else {
-        // Apply formatting surrounding the selected area
+      // Check if the selection is a textNode is enclosed by same Node
+      else if (isTextSelection(range, command)) {
+        console.log('isFullyText:', selection);
+        // Apply formatting to the selected text
         applyFormatToSelection(command, range);
 
+        // Clear the selection after applying formatting
         selection.removeAllRanges();
+      }
+      // Check if the selection is a command element or is fully enclosed by a command element
+      else {
+        // Check if the selection is a command element or is fully enclosed by a command element
+        const {
+          result,
+          node
+        } = isCommandElement(range, command);
+
+        console.log(`
+          result: ${result}
+          node: ${node}
+        `)
+
+
+        // Check if the selection is a command element or is fully enclosed by a command element
+        if (result) {
+          console.log('selection is a command element or is fully enclosed by a command element')
+          // Replace the target node with its child node
+          node.parentNode.insertBefore(node.firstChild, node);
+
+          // Clear the selection after removing formatting
+          selection.removeAllRanges();
+        }
+        else {
+          console.log('The selection span throw different nodes')
+          // If the format is already applied to the node or the child nodes remove them
+          const nodesInRange = traverseNodes(range, command, startContainer, endContainer);
+
+          // Remove formatting from the selected nodes
+          removeFormatting(nodesInRange, command, range, selection);
+
+          // Apply formatting surrounding the selected area
+          applyFormatToSelection(command, range);
+
+          selection.removeAllRanges();
+        }
       }
 
       firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
@@ -393,6 +421,85 @@ document.addEventListener("DOMContentLoaded", function () {
     return nodes;
   }
 
+  // check if the current  selection is a subset of a textNode and no other nodes are selected
+  const isTextSelection = (range, command) => {
+    // Get the start and end containers and offsets of the range
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
+
+    // first check if the start and end containers are the same
+    if (
+      startContainer === endContainer &&
+
+      startContainer.nodeType === Node.TEXT_NODE &&
+
+      // This check if the selection is not enclosed same parent node
+      startContainer.parentNode.nodeName !== command &&
+
+      // This check if the selection starts and ends at the same parent node
+      !(startOffset === 0 && endOffset === endContainer.length)
+    ) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  // check if a selection is command element or a is fully enclosed by a command element
+  const isCommandElement = (range, command) => {
+    // Get the start and end containers and offsets of the range
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
+
+    const startIsEm = startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command;
+    const endIsEm = endContainer.nodeType === Node.ELEMENT_NODE && endContainer.tagName.toLowerCase() === command;
+
+    // Check if the selection is fully enclosed by the <command> element
+    if (
+      // Check if the selection starts and ends at the same node
+      startIsEm && endIsEm &&
+
+      // Check if the selection starts at the same offset
+      startOffset === 0 &&
+
+      // Check if the selection ends at the same offset
+      endOffset === endContainer.childNodes.length
+    ) {
+      return {
+        result: true,
+        node: startContainer
+      };
+    }
+    else if (
+      // This check if the selection is enclosed same parent node
+      startContainer.parentNode === endContainer.parentNode &&
+
+      // This check if the parent node is an element node
+      startContainer.parentNode.nodeType === Node.ELEMENT_NODE &&
+
+      // This check if the parent node is a command element
+      startContainer.parentNode.tagName.toLowerCase() === command &&
+
+      // This check if the selection starts and ends at the same parent node
+      startOffset === 0 && endOffset === endContainer.childNodes.length
+    ) {
+      return {
+        result: true,
+        node: startContainer.parentNode
+      };
+    } else {
+      return {
+        result: false,
+        node: null
+      }
+    }
+  }
+
   // Node formatting removal without affecting the selection range
   const removeNodeFormatting = (selection, range, targetNode) => {
     // create an array to hold ranges of the selected nodes
@@ -449,13 +556,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // log the target elements
       console.log('Target Elements:', targetElements);
-
-      // Return true if the formatting was removed
-      return true;
-    }
-    else {
-      // Return false if no formatting was removed
-      return false;
     }
   }
 
@@ -472,8 +572,10 @@ document.addEventListener("DOMContentLoaded", function () {
         };
       } else if (mutation.type === 'childList') {
         return {
-          type: 'childList',
+          type: mutation.type,
           target: mutation.target,
+          oldValue: mutation.oldValue,
+          newValue: mutation.target.nodeValue,
           addedNodes: Array.from(mutation.addedNodes),
           removedNodes: Array.from(mutation.removedNodes),
           previousSibling: mutation.previousSibling,
