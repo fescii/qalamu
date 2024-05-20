@@ -431,6 +431,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
+    console.log('Parent Node', startContainer.parentNode);
+    console.log('Parent Node Name', startContainer.parentNode.nodeName)
+    console.log('Command', command)
+
     // first check if the start and end containers are the same
     if (
       startContainer === endContainer &&
@@ -438,10 +442,11 @@ document.addEventListener("DOMContentLoaded", function () {
       startContainer.nodeType === Node.TEXT_NODE &&
 
       // This check if the selection is not enclosed same parent node
-      startContainer.parentNode.nodeName !== command &&
+      startContainer.parentNode.nodeName.toLowerCase() !== command &&
 
       // This check if the selection starts and ends at the same parent node
-      (!(startOffset === 0 && endOffset === endContainer.length) || range.commonAncestorContainer.nodeType === Node.TEXT_NODE)
+      startOffset >= 0 &&
+      (endOffset !== endContainer.length || endOffset !== endContainer.parentNode.length)
     ) {
       return true;
     }
@@ -458,9 +463,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
-    console.log('StartOffset:', startOffset);
-    console.log('EndOffset:', endOffset);
+    console.log('Parent Node', startContainer.parentNode);
+    console.log('Parent Node Name', startContainer.parentNode.nodeName)
+    console.log('Command', command)
+
+
+    console.log('StartContainer:', startContainer);
+    console.log('EndContainer:', endContainer);
     console.log('Chi:', endContainer.length);
+    console.log('Parent Length', startContainer.parentNode.length)
 
     const startIsEm = startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command;
     const endIsEm = endContainer.nodeType === Node.ELEMENT_NODE && endContainer.tagName.toLowerCase() === command;
@@ -481,24 +492,39 @@ document.addEventListener("DOMContentLoaded", function () {
         node: startContainer
       };
     }
-    else if (
       // This check if the selection is enclosed same parent node
-      startContainer.parentNode === endContainer.parentNode &&
-
+    else if (
       // This check if the parent node is an element node
       startContainer.parentNode.nodeType === Node.ELEMENT_NODE &&
 
-      // This check if the parent node is a command element
-      startContainer.parentNode.nodeName.toLowerCase() === command &&
+      (startContainer.nodeType === Node.TEXT_NODE || endContainer.nodeType === Node.TEXT_NODE) &&
 
-      // This check if the selection starts at the startContainer offset and ends at the endContainer's end offset
-      startOffset === 0 && endOffset === endContainer.length
+      // This check if the parent node is a command element
+      (startContainer.parentNode.nodeName.toLowerCase() === command || endContainer.parentNode.nodeName.toLowerCase() === command)
+
     ) {
-      return {
-        result: true,
-        node: startContainer.parentNode
-      };
-    } else {
+      // This check if the selection starts at the startContainer offset and ends at the endContainer's end offset
+      // startOffset === 0 &&
+      // endOffset === endContainer.length
+      const parentLength = startContainer.parentNode.textContent.trim().length;
+      const contentLength = startContainer.data.trim().length;
+
+      console.log('ParentLength:', startContainer.parentNode.textContent);
+      console.log('ContentLength', startContainer.data)
+
+      if (parentLength === contentLength) {
+        return {
+          result: true,
+          node: startContainer.parentNode
+        };
+      }
+      else {
+        return {
+          result: false,
+          node: null
+        }
+      }
+    }else {
       return {
         result: false,
         node: null
@@ -533,14 +559,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ranges.push(beforeRange, afterRange);
 
     // Replace the target node with its child nodes
-    while (targetNode.firstChild) {
-      targetNode.parentNode.insertBefore(targetNode.firstChild, targetNode);
-    }
-
-    // Remove the target node if it's not nul
-    if (targetNode.parentNode) {
-      targetNode.parentNode.removeChild(targetNode);
-    }
+    targetNode.replaceWith(...targetNode.childNodes);
 
     // Restore the selection with the modified ranges
     selection.removeAllRanges();
