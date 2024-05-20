@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // Observe changes in the editable content
-  // observer.observe(editor, observerOptions);
+  observer.observe(editor, observerOptions);
 
 
   // Save the current selection: cursor position
@@ -431,9 +431,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
-    console.log('Parent Node', startContainer.parentNode);
-    console.log('Parent Node Name', startContainer.parentNode.nodeName)
-    console.log('Command', command)
+    // console.log('Parent Node', startContainer.parentNode);
+    // console.log('Parent Node Name', startContainer.parentNode.nodeName)
+    // console.log('Command', command)
 
     // first check if the start and end containers are the same
     if (
@@ -463,15 +463,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
-    console.log('Parent Node', startContainer.parentNode);
-    console.log('Parent Node Name', startContainer.parentNode.nodeName)
-    console.log('Command', command)
+    // console.log('Parent Node', startContainer.parentNode);
+    // console.log('Parent Node Name', startContainer.parentNode.nodeName)
+    // console.log('Command', command)
 
 
-    console.log('StartContainer:', startContainer);
-    console.log('EndContainer:', endContainer);
-    console.log('Chi:', endContainer.length);
-    console.log('Parent Length', startContainer.parentNode.length)
+    // console.log('StartContainer:', startContainer);
+    // console.log('EndContainer:', endContainer);
+    // console.log('Chi:', endContainer.length);
+    // console.log('Parent Length', startContainer.parentNode.length)
 
     const startIsEm = startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command;
     const endIsEm = endContainer.nodeType === Node.ELEMENT_NODE && endContainer.tagName.toLowerCase() === command;
@@ -580,7 +580,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       // log the target elements
-      console.log('Target Elements:', targetElements);
+      // console.log('Target Elements:', targetElements);
     }
   }
 
@@ -620,14 +620,21 @@ document.addEventListener("DOMContentLoaded", function () {
         mutation.target.data = undo ? mutation.oldValue : mutation.newValue;
       } else if (mutation.type === 'childList') {
         if (undo) {
+          // Removing added nodes
           mutation.addedNodes.forEach(node => node.remove());
+
+          // Restoring removed nodes
           mutation.removedNodes.forEach(node => {
+            // Check for next sibling or previous sibling
             if (mutation.nextSibling) {
-              target.insertBefore(node, mutation.nextSibling);
-            } else {
-              target.appendChild(node);
+              mutation.target.insertBefore(node, mutation.nextSibling);
+            } else if (mutation.previousSibling) {
+              mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
             }
-          });
+            else {
+              mutation.target.appendChild(node);
+            }
+          })
         } else {
           mutation.removedNodes.forEach(node => node.remove());
           mutation.addedNodes.forEach(node => {
