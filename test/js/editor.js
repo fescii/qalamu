@@ -614,17 +614,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Function to apply mutations
   const applyMutations = (mutations, undo = false) => {
-    mutations.forEach(mutation => {
-      // console.log('isUdoRedoAction:', isUndoRedoAction);
-      if (mutation.type === 'characterData') {
-        mutation.target.data = undo ? mutation.oldValue : mutation.newValue;
-      } else if (mutation.type === 'childList') {
-        if (undo) {
-          // Removing added nodes
+
+    // loop mutations in an opposite order since we are undoing
+    if (undo) {
+      let i = mutations.length - 1;
+
+      // loop the mutations in an opposite order
+      for (i; i >= 0; i--) {
+        const mutation = mutations[i];
+        // Check if mutation is a characterData
+        if (mutation.type === 'characterData') {
+          // Undo the characterData mutation
+          mutation.target.data = mutation.oldValue
+        }
+        // Check if mutation is a childList
+        if (mutation.type === 'childList') {
+          // log added nodes and removed nodes
+          // console.log('Added Nodes:', mutation.addedNodes);
+          // console.log('Removed Nodes:', mutation.removedNodes);
+
+          // Remove the added nodes and restore the removed nodes
+
+          // Removing the added nodes
           mutation.addedNodes.forEach(node => node.remove());
 
-          // Restoring removed nodes
+          // Restoring the removed nodes
           mutation.removedNodes.forEach(node => {
+            console.log('Removed Node:', node);
             // Check for next sibling or previous sibling
             if (mutation.nextSibling) {
               mutation.target.insertBefore(node, mutation.nextSibling);
@@ -635,22 +651,94 @@ document.addEventListener("DOMContentLoaded", function () {
               mutation.target.appendChild(node);
             }
           })
-        } else {
+        }
+
+        // Restore selection
+        restoreSelection(mutation.selection);
+      }
+    }
+    else {
+      // For redo action
+      mutations.forEach(mutation => {
+        // log added nodes and removed nodes
+        console.log('Added Nodes:', mutation.addedNodes);
+        console.log('Removed Nodes:', mutation.removedNodes);
+        // Check if mutation is a characterData
+        if (mutation.type === 'characterData') {
+          // Redo the characterData mutation
+          mutation.target.data = mutation.newValue;
+        }
+        // Check if mutation is a childList
+        if (mutation.type === 'childList') {
+
+          // Removing the removed nodes
           mutation.removedNodes.forEach(node => node.remove());
+
+          // Restoring the added nodes
           mutation.addedNodes.forEach(node => {
             if (mutation.nextSibling) {
-              target.insertBefore(node, mutation.nextSibling);
-            } else {
-              target.appendChild(node);
+              mutation.target.insertBefore(node, mutation.nextSibling);
+            }
+            else if (mutation.previousSibling) {
+              mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
+            }
+            else {
+              mutation.target.appendChild(node);
             }
           });
         }
-      }
 
-      // Restore selection
-      restoreSelection(mutation.selection);
-      // console.log('isUdoRedoAction:', isUndoRedoAction);
-    });
+        // Restore selection
+        restoreSelection(mutation.selection);
+      });
+    }
+
+
+
+
+
+    // mutations.forEach(mutation => {
+    //   // console.log('isUdoRedoAction:', isUndoRedoAction);
+    //   if (mutation.type === 'characterData') {
+    //     mutation.target.data = undo ? mutation.oldValue : mutation.newValue;
+    //   } else if (mutation.type === 'childList') {
+    //     // log added nodes and removed nodes
+    //     console.log('Added Nodes:', mutation.addedNodes);
+    //     console.log('Removed Nodes:', mutation.removedNodes);
+    //     if (undo) {
+    //       // Removing added nodes
+    //       mutation.addedNodes.forEach(node => node.remove());
+
+    //       // Restoring removed nodes
+    //       mutation.removedNodes.forEach(node => {
+    //         // log all removed nodes
+    //         // console.log('Removed Node:', node);
+    //         // Check for next sibling or previous sibling
+    //         if (mutation.nextSibling) {
+    //           mutation.target.insertBefore(node, mutation.nextSibling);
+    //         } else if (mutation.previousSibling) {
+    //           mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
+    //         }
+    //         else {
+    //           mutation.target.appendChild(node);
+    //         }
+    //       })
+    //     } else {
+    //       mutation.removedNodes.forEach(node => node.remove());
+    //       mutation.addedNodes.forEach(node => {
+    //         if (mutation.nextSibling) {
+    //           target.insertBefore(node, mutation.nextSibling);
+    //         } else {
+    //           target.appendChild(node);
+    //         }
+    //       });
+    //     }
+    //   }
+
+    //   // Restore selection
+    //   restoreSelection(mutation.selection);
+    //   // console.log('isUdoRedoAction:', isUndoRedoAction);
+    // });
   }
 
   // Function to undo the last action
@@ -678,6 +766,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const mutations = redoStack.pop();
       undoStack.push(mutations);
       isUndoRedoAction = true;
+
+      console.log('undoStack:', undoStack);
 
       // disconnect the observer
       observer.disconnect();
