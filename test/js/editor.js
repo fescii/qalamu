@@ -25,8 +25,8 @@ document.addEventListener("DOMContentLoaded", function () {
       redoStack.length = 0; // Clear the redo stack on new changes
 
       // Log the undo and redo stack
-      console.log('Undo Stack:', undoStack);
-      console.log('Redo Stack:', redoStack);
+      // console.log('Undo Stack:', undoStack);
+      // console.log('Redo Stack:', redoStack);
     }
   });
 
@@ -601,8 +601,8 @@ document.addEventListener("DOMContentLoaded", function () {
           target: mutation.target,
           oldValue: mutation.oldValue,
           newValue: mutation.target.nodeValue,
-          addedNodes: Array.from(mutation.addedNodes),
-          removedNodes: Array.from(mutation.removedNodes),
+          addedNodes: mutation.addedNodes,
+          removedNodes: mutation.removedNodes,
           previousSibling: mutation.previousSibling,
           nextSibling: mutation.nextSibling,
           selection: saveSelection()  // Save selection here
@@ -629,18 +629,19 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         // Check if mutation is a childList
         if (mutation.type === 'childList') {
-          // log added nodes and removed nodes
-          // console.log('Added Nodes:', mutation.addedNodes);
-          // console.log('Removed Nodes:', mutation.removedNodes);
+          mutation.addedNodes.forEach(node => {
+            // log node before removing
+            console.log('Before Node:', node);
 
-          // Remove the added nodes and restore the removed nodes
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
 
-          // Removing the added nodes
-          mutation.addedNodes.forEach(node => node.remove());
+            // log node after removing
+            console.log('After Node:', node);
+          });
 
           // Restoring the removed nodes
           mutation.removedNodes.forEach(node => {
-            console.log('Removed Node:', node);
             // Check for next sibling or previous sibling
             if (mutation.nextSibling) {
               mutation.target.insertBefore(node, mutation.nextSibling);
@@ -671,8 +672,17 @@ document.addEventListener("DOMContentLoaded", function () {
         // Check if mutation is a childList
         if (mutation.type === 'childList') {
 
-          // Removing the removed nodes
-          mutation.removedNodes.forEach(node => node.remove());
+          // Removing removed nodes
+          mutation.removedNodes.forEach(node => {
+            // log node before removing
+            console.log('Before Node:', node);
+
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
+
+            // log node after removing
+            console.log('After Node:', node);
+          });
 
           // Restoring the added nodes
           mutation.addedNodes.forEach(node => {
@@ -692,67 +702,27 @@ document.addEventListener("DOMContentLoaded", function () {
         restoreSelection(mutation.selection);
       });
     }
-
-
-
-
-
-    // mutations.forEach(mutation => {
-    //   // console.log('isUdoRedoAction:', isUndoRedoAction);
-    //   if (mutation.type === 'characterData') {
-    //     mutation.target.data = undo ? mutation.oldValue : mutation.newValue;
-    //   } else if (mutation.type === 'childList') {
-    //     // log added nodes and removed nodes
-    //     console.log('Added Nodes:', mutation.addedNodes);
-    //     console.log('Removed Nodes:', mutation.removedNodes);
-    //     if (undo) {
-    //       // Removing added nodes
-    //       mutation.addedNodes.forEach(node => node.remove());
-
-    //       // Restoring removed nodes
-    //       mutation.removedNodes.forEach(node => {
-    //         // log all removed nodes
-    //         // console.log('Removed Node:', node);
-    //         // Check for next sibling or previous sibling
-    //         if (mutation.nextSibling) {
-    //           mutation.target.insertBefore(node, mutation.nextSibling);
-    //         } else if (mutation.previousSibling) {
-    //           mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
-    //         }
-    //         else {
-    //           mutation.target.appendChild(node);
-    //         }
-    //       })
-    //     } else {
-    //       mutation.removedNodes.forEach(node => node.remove());
-    //       mutation.addedNodes.forEach(node => {
-    //         if (mutation.nextSibling) {
-    //           target.insertBefore(node, mutation.nextSibling);
-    //         } else {
-    //           target.appendChild(node);
-    //         }
-    //       });
-    //     }
-    //   }
-
-    //   // Restore selection
-    //   restoreSelection(mutation.selection);
-    //   // console.log('isUdoRedoAction:', isUndoRedoAction);
-    // });
   }
 
   // Function to undo the last action
   const undo = () => {
     if (undoStack.length > 1) {
-      const mutations = undoStack.pop();
-      redoStack.push(mutations);
       isUndoRedoAction = true;
+      const mutations = undoStack.pop();
+
+      // push the mutations to the redo stack
+      redoStack.push(mutations);
+
+      console.log('Redo Stack:', redoStack);
+      console.log('Undo Stack:', undoStack);
 
       // disconnect the observer
       observer.disconnect();
 
       // apply mutations
       applyMutations(mutations, true);
+
+      // change the isUndoRedoAction to false
       isUndoRedoAction = false;
 
       // reconnect the observer
@@ -763,17 +733,22 @@ document.addEventListener("DOMContentLoaded", function () {
   // Function to redo the last action
   const redo = () => {
     if (redoStack.length > 0) {
-      const mutations = redoStack.pop();
-      undoStack.push(mutations);
       isUndoRedoAction = true;
+      const mutations = redoStack.pop();
 
-      console.log('undoStack:', undoStack);
+      // push the mutations to the undo stack
+      undoStack.push(mutations);
+
+      console.log('Redo Stack:', redoStack);
+      console.log('Undo Stack:', undoStack);
 
       // disconnect the observer
       observer.disconnect();
 
       // apply mutations
       applyMutations(mutations, false);
+
+      // change the isUndoRedoAction to false
       isUndoRedoAction = false;
 
       // reconnect the observer
