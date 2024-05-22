@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Get the editable div
   const editor = document.querySelector(".editor");
   const section = document.querySelector("section.container");
-  const placeholder = section.querySelector("p.placeholder");
 
   // Define redo and undo stacks and a variable to keep track of the current action
   const undoStack = [];
@@ -88,28 +87,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Handle key press events
   editor.addEventListener("keypress", (e) => {
     // e.preventDefault();
-
-    // Check if it's the first key press and remove the placeholder
-    if (firstKeypress) {
-      if (placeholder) {
-        placeholder.classList.add("inactive");
-      }
-      firstKeypress = false;
-
-      // Create a new paragraph element and append it to the editor
-      const paragraph = document.createElement("p");
-      paragraph.textContent = "\u200B"; // Add a zero-width space to make the paragraph focusable
-      editor.appendChild(paragraph);
-
-      // Set the cursor at the beginning of the paragraph
-      const range = document.createRange();
-      const selection = window.getSelection();
-      range.setStart(paragraph, 0);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      editor.focus();
-    }
 
     // Check if the current key press is Enter
     if (e.key === "Enter") {
@@ -248,26 +225,12 @@ document.addEventListener("DOMContentLoaded", function () {
       selection.removeAllRanges();
       selection.addRange(range);
     }
-
-    // Check if it's the first key press and hide the placeholder
-    if (firstKeypress) {
-      placeholder.classList.add("inactive");
-      firstKeypress = false;
-    }
   });
 
   // Handle blur event
   editor.addEventListener("blur", function () {
     // Get the textContent of the editor
-    const editorContent = editor.textContent.trim();
 
-    // Check the length of the textContent
-    if (editorContent.length <= 1) {
-      // Show placeholder
-      placeholder.classList.remove("inactive");
-
-      firstKeypress = true;
-    }
   });
 
   // handle keydown event
@@ -356,8 +319,6 @@ document.addEventListener("DOMContentLoaded", function () {
           selection.removeAllRanges();
         }
       }
-
-      firstKeypress = false; // Consider a keydown as a keypress for placeholder removal
     }
 
     // Handle undo, and redo combinations: Undo - ctrl+z or cmd+z, Redo - ctrl+y or cmd+y
@@ -790,7 +751,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           document.execCommand(command, false, null);
         }
-        firstKeypress = false; // Consider a button click as a keypress for placeholder removal
       }
     });
   });
@@ -850,9 +810,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // Clear editor contents
       editor.innerHTML = "";
 
-      // Show placeholder
-      placeholder.classList.remove("inactive");
-      firstKeypress = true;
 
       // Create a new paragraph element and append it to the editor
       const paragraph = document.createElement("p");
@@ -872,6 +829,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
+  // function to update the placeholder
+  const updatePlaceholder = e => {
+    if (e.target.textContent.trim().length === 0) {
+      e.target.classList.remove('not-empty');
+    } else {
+      e.target.classList.add('not-empty');
+    }
+  }
+
   // Handle input events
   editor.addEventListener("input", (e) => {
     // const key = e.key; // const {key} = event; ES6+
@@ -879,6 +845,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // 	handleInput(e);
     // }
 
-    handleInput(e);
+    // handleInput(e);
+
+    // handle placeholder
+    updatePlaceholder(e);
   });
 });

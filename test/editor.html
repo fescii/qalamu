@@ -48,20 +48,19 @@
 		overflow-y: scroll;
 	}
 
-	p.placeholder {
-		color: var(--gray-color);
-		font-size: 1rem;
-		font-family: var(--font-read), sans-serif;
-		position: absolute;
-		top: 10px;
-		left: 10px;
-		padding: 0;
-		margin: 0;
+	.editor::before {
+    content: attr(data-placeholder);
+    color: var(--gray-color);
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    pointer-events: none; /* Ensures the placeholder doesn't interfere with user input */
 	}
 
-	p.placeholder.inactive {
-		opacity: 0;
+	.editor.not-empty::before {
+		display: none;
 	}
+
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
@@ -78,7 +77,6 @@
 <body>
 
 <section class="container">
-	<p class="placeholder">Start typing..</p>
 	<div class="editor" contenteditable="true" data-placeholder="Start typing here..." spellcheck="true">
 	</div>
 	<div class="toolbar">
