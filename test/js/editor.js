@@ -631,13 +631,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach(node => {
             // log node before removing
-            console.log('Before Node:', node);
+            console.log('Before Node:', node.innerHTML);
 
             // Detach node from the DOM
             mutation.target.removeChild(node);
 
             // log node after removing
-            console.log('After Node:', node);
+            console.log('After Node:', node.innerHTML);
           });
 
           // Restoring the removed nodes
