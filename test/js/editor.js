@@ -311,6 +311,9 @@ document.addEventListener("DOMContentLoaded", function () {
           // Remove formatting from the selected nodes
           removeFormatting(nodesInRange, command, range, selection);
 
+          // const selectedContent = range.extractContents();
+          // console.log('Selected Content:', selectedContent);
+
           // Apply formatting surrounding the selected area
           applyFormatToSelection(command, range);
 
@@ -340,12 +343,22 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create the corresponding element for the formatting command
     const element = document.createElement(command);
 
-    const selectedContent = range.extractContents();
-    element.appendChild(selectedContent);
+
+    // surround the selected text with the element
+    // range.surroundContents(element);
+
+    element.appendChild(range.extractContents());
+
+    // console.log('Element:', element);
+
+    range.insertNode(element);
+
+    // const selectedContent = range.extractContents();
+    // element.appendChild(selectedContent);
 
     // Replace the selected content with the formatted element
-    range.deleteContents();
-    range.insertNode(element);
+    // range.deleteContents();
+    // range.insertNode(element);
   };
 
   // Helper function for recursive traversal
@@ -599,7 +612,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach(node => {
             // log node before removing
-            console.log('Before Node:', node.innerHTML);
+            // console.log('Before Node:', node.innerHTML);
 
 
             // check if the node is equal to the mutation target
