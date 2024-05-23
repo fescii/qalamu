@@ -61,6 +61,42 @@
 		display: none;
 	}
 
+	/*
+		1. Use a more-intuitive box-sizing model.
+	*/
+	*, *::before, *::after {
+		box-sizing: border-box;
+	}
+	/*
+		2. Remove default margin
+	*/
+	* {
+		margin: 0;
+	}
+	/*
+		Typographic tweaks!
+		3. Add accessible line-height
+		4. Improve text rendering
+	*/
+	.editor {
+		line-height: 1.5;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	/*
+		7. Avoid text overflows
+	*/
+	p, h1, h2, h3, h4, h5, h6 {
+		overflow-wrap: break-word;
+		margin: 0 0 10px 0;
+	}
+	/*
+		8. Create a root stacking context
+	*/
+	#root, #__next {
+		isolation: isolate;
+	}
+
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;

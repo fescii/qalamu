@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
   // Get the editable div
   const editor = document.querySelector(".editor");
-  const section = document.querySelector("section.container");
 
   // Define redo and undo stacks and a variable to keep track of the current action
   const undoStack = [];
@@ -79,10 +78,6 @@ document.addEventListener("DOMContentLoaded", function () {
       selection.addRange(range);
     }
   }
-
-
-  // Handle key press events
-  let firstKeypress = true;
 
   // Handle key press events
   editor.addEventListener("keypress", (e) => {
@@ -184,9 +179,12 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // handle paste event, and remove place holder accordingly
-  editor.addEventListener("paste", (e) => {
+  editor.addEventListener("paste", e => {
     // Prevent the default paste behavior
     e.preventDefault();
+
+    // add placeholder class if it exists
+    editor.classList.add('not-empty');
 
     // Get the text content of the clipboard as plain text
     const text = (e.originalEvent || e).clipboardData.getData("text/plain");
@@ -196,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const range = selection.getRangeAt(0); // Get the range of the selection
 
     // Check for the current formatting
-    currentFormatting = getCurrentFormatting();
+    let currentFormatting = getCurrentFormatting();
 
     // Delete the selected content (if any)
     range.deleteContents();
@@ -547,30 +545,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Function to store mutations
   const storeMutations = mutations => {
+
+    // add the current selection to each mutation and retaining mutation object
     return mutations.map(mutation => {
+      // console.log('Mutation:', mutation);
+      // add snapshot of the current selection to the mutation object
+      mutation.selection = saveSelection();
+
+      // add newValue to the mutation object
+      // if mutation is a characterData add the newValue as the data of the target
       if (mutation.type === 'characterData') {
-        return {
-          type: 'characterData',
-          target: mutation.target,
-          oldValue: mutation.oldValue,
-          newValue: mutation.target.data,
-          selection: saveSelection()  // Save selection here
-        };
-      } else if (mutation.type === 'childList') {
-        return {
-          type: mutation.type,
-          target: mutation.target,
-          oldValue: mutation.oldValue,
-          newValue: mutation.target.nodeValue,
-          addedNodes: mutation.addedNodes,
-          removedNodes: mutation.removedNodes,
-          previousSibling: mutation.previousSibling,
-          nextSibling: mutation.nextSibling,
-          selection: saveSelection()  // Save selection here
-        };
+        mutation.newValue = mutation.target.data;
       }
-      return null;
-    }).filter(mutation => mutation !== null);
+      // if mutation is a childList add the newValue as the nodeValue of the target
+      else if (mutation.type === 'childList') {
+        mutation.newValue = mutation.target.nodeValue;
+
+        // loop through addedNodes and store the nodeValue as str
+        mutation.addedNodes.forEach(node => {
+          node.innerData = node.innerHTML;
+        });
+
+        // loop through removedNodes and store the nodeValue as str
+        mutation.removedNodes.forEach(node => {
+          node.innerData = node.innerHTML;
+        });
+      }
+      // if the mutation is an attribute add the newValue as the attribute value
+      else if (mutation.type === 'attributes') {
+        mutation.newValue = mutation.target.getAttribute(mutation.attributeName);
+      }
+
+      return mutation;
+    })
   }
 
   // Function to apply mutations
@@ -594,8 +601,17 @@ document.addEventListener("DOMContentLoaded", function () {
             // log node before removing
             console.log('Before Node:', node.innerHTML);
 
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
+
+            // check if the node is equal to the mutation target
+            if (node.isSameNode(mutation.target)) {
+              console.log('Same node as target', node)
+              // Detach node from the DOM
+              mutation.target.removeChild(node);
+            }
+            else {
+              // Detach node from the DOM
+              mutation.target.removeChild(node);
+            }
 
             // log node after removing
             console.log('After Node:', node.innerHTML);
@@ -603,6 +619,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
           // Restoring the removed nodes
           mutation.removedNodes.forEach(node => {
+            // replace the node value/innerHTML with the innerData
+            // node.innerHTML = node.innerData;
+
+            // log node before removing
+            console.log('Before change:', node.innerHTML);
+
             // Check for next sibling or previous sibling
             if (mutation.nextSibling) {
               mutation.target.insertBefore(node, mutation.nextSibling);
@@ -612,6 +634,9 @@ document.addEventListener("DOMContentLoaded", function () {
             else {
               mutation.target.appendChild(node);
             }
+
+            // log node before removing
+            console.log('After change:', node.innerHTML);
           })
         }
 
@@ -638,8 +663,16 @@ document.addEventListener("DOMContentLoaded", function () {
             // log node before removing
             console.log('Before Node:', node);
 
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
+            // check if the node is equal to the mutation target
+            if (node.isSameNode(mutation.target)) {
+              console.log('Same node as target', node)
+              // Detach node from the DOM
+              mutation.target.removeChild(node);
+            }
+            else {
+              // Detach node from the DOM
+              mutation.target.removeChild(node);
+            }
 
             // log node after removing
             console.log('After Node:', node);
@@ -647,6 +680,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
           // Restoring the added nodes
           mutation.addedNodes.forEach(node => {
+            // replace the node value/innerHTML with the innerData
+            // node.innerHTML = node.innerData;
+
             if (mutation.nextSibling) {
               mutation.target.insertBefore(node, mutation.nextSibling);
             }
