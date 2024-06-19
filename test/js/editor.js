@@ -582,6 +582,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // loop through removedNodes and store the nodeValue as str
         mutation.removedNodes.forEach(node => {
           node.innerData = node.innerHTML;
+          // console.log('Removed Node:', node);
         });
       }
       // if the mutation is an attribute add the newValue as the attribute value
@@ -607,27 +608,27 @@ document.addEventListener("DOMContentLoaded", function () {
         if (mutation.type === 'characterData') {
           // Undo the characterData mutation
           mutation.target.data = mutation.oldValue
+
+          // log the mutation target
+          console.log('Mutation Target characterData:', mutation.target);
         }
         // Check if mutation is a childList
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach(node => {
             // log node before removing
-            // console.log('Before Node:', node.innerHTML);
+            console.log('Before Node:', node.innerHTML);
 
+            // deep clone the node before removing
+            const clonedNode = node.cloneNode(true);
 
             // check if the node is equal to the mutation target
-            if (node.isSameNode(mutation.target)) {
-              console.log('Same node as target', node)
-              // Detach node from the DOM
-              mutation.target.removeChild(node);
-            }
-            else {
-              // Detach node from the DOM
-              mutation.target.removeChild(node);
-            }
+            mutation.target.removeChild(node);
+
+            // restore the node after removing
+            mutation.addedNodes[i] = clonedNode;
 
             // log node after removing
-            console.log('After Node:', node.innerHTML);
+            console.log('After Node:', mutation.target.innerHTML);
           });
 
           // Restoring the removed nodes
@@ -636,7 +637,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // node.innerHTML = node.innerData;
 
             // log node before removing
-            console.log('Before change:', node.innerHTML);
+            // console.log('Before change:', node.innerHTML);
 
             // Check for next sibling or previous sibling
             if (mutation.nextSibling) {
@@ -649,7 +650,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // log node before removing
-            console.log('After change:', node.innerHTML);
+            // console.log('After change:', node.innerHTML);
           })
         }
 
@@ -667,6 +668,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (mutation.type === 'characterData') {
           // Redo the characterData mutation
           mutation.target.data = mutation.newValue;
+
+          // log the mutation target
+          console.log('Mutation Target characterData - Redo:', mutation.target);
         }
         // Check if mutation is a childList
         if (mutation.type === 'childList') {
@@ -676,16 +680,8 @@ document.addEventListener("DOMContentLoaded", function () {
             // log node before removing
             console.log('Before Node:', node);
 
-            // check if the node is equal to the mutation target
-            if (node.isSameNode(mutation.target)) {
-              console.log('Same node as target', node)
-              // Detach node from the DOM
-              mutation.target.removeChild(node);
-            }
-            else {
-              // Detach node from the DOM
-              mutation.target.removeChild(node);
-            }
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
 
             // log node after removing
             console.log('After Node:', node);
@@ -765,8 +761,6 @@ document.addEventListener("DOMContentLoaded", function () {
       observer.observe(editor, observerOptions);
     }
   }
-
-
 
   // Handle button clicks to insert HTML tags
   const buttons = document.querySelectorAll(".toolbar button");
