@@ -666,9 +666,15 @@ document.addEventListener("DOMContentLoaded", function () {
         if (mutation.type === 'childList') {
 
           // Removing removed nodes
-          mutation.removedNodes.forEach(node => {
+          mutation.removedNodes.forEach((node, index) => {
             // log node before removing
             console.log('Before Node:', node);
+
+            // clone the node before removing
+            const clonedNode = node.cloneNode(true);
+
+            // replace the current nodes
+            mutation.removedNodes[index] = clonedNode;
 
             // Detach node from the DOM
             mutation.target.removeChild(node);
