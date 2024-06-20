@@ -253,7 +253,6 @@ document.addEventListener("DOMContentLoaded", function () {
           startContainer.remove();
         }
         else {
-          console.log('The selection is collapse but not formatted!')
           // Apply formatting to the selected text
           applyFormatToSelection(command, range);
 
@@ -262,52 +261,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       // Check if the selection is a textNode is enclosed by same Node
-      else if (isTextSelection(range, command)) {
-        console.log('isFullyText:', selection);
+      else {
         // Apply formatting to the selected text
         applyFormatToSelection(command, range);
 
         // Clear the selection after applying formatting
         selection.removeAllRanges();
-      }
-      // Check if the selection is a command element or is fully enclosed by a command element
-      else {
-        console.log('Selection:', selection);
-        // Check if the selection is a command element or is fully enclosed by a command element
-        const {
-          result,
-          node
-        } = isCommandElement(range, command);
-
-        console.log('Node', node)
-
-        console.log(`
-          result: ${result}
-        `)
-
-
-        // Check if the selection is a command element or is fully enclosed by a command element
-        if (result) {
-          console.log('selection is a command element or is fully enclosed by a command element')
-          // Replace the target node with its child node
-          node.replaceWith(...node.childNodes);
-
-          // Clear the selection after removing formatting
-          selection.removeAllRanges();
-        }
-        else {
-          console.log('The selection span throw different nodes')
-          // If the format is already applied to the node or the child nodes remove them
-          const nodesInRange = traverseNodes(range, command, startContainer, endContainer);
-
-          // Remove formatting from the selected nodes
-          removeFormatting(nodesInRange, command, range, selection);
-
-          // Apply formatting surrounding the selected area
-          applyFormatToSelection(command, range);
-
-          selection.removeAllRanges();
-        }
       }
     }
 
@@ -534,21 +493,12 @@ document.addEventListener("DOMContentLoaded", function () {
         mutation.newValue = mutation.target.data;
       }
       // if mutation is a childList add the newValue as the nodeValue of the target
-      else if (mutation.type === 'childList') {
+      if (mutation.type === 'childList') {
         mutation.newValue = mutation.target.nodeValue;
-
-        // loop through addedNodes and store the nodeValue as str
-        mutation.addedNodes.forEach(node => {
-          node.innerData = node.innerHTML;
-        });
-
-        // loop through removedNodes and store the nodeValue as str
-        mutation.removedNodes.forEach(node => {
-          node.innerData = node.innerHTML;
-        });
       }
+  
       // if the mutation is an attribute add the newValue as the attribute value
-      else if (mutation.type === 'attributes') {
+      if (mutation.type === 'attributes') {
         mutation.newValue = mutation.target.getAttribute(mutation.attributeName);
       }
 
@@ -570,6 +520,10 @@ document.addEventListener("DOMContentLoaded", function () {
         // Undo the characterData mutation
         mutation.target.data = mutation.oldValue;
       }
+      // Check if mutation is an attribute
+      if (mutation.type === "attributes") {
+        target.setAttribute(record.attributeName, mutation.oldValue);
+      }
       // Check if mutation is a childList
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
@@ -581,16 +535,10 @@ document.addEventListener("DOMContentLoaded", function () {
             // Detach node from the DOM
             mutation.target.removeChild(node);
           }
-
-          // log node after removing
-          console.log("After Node:", node.innerHTML);
         });
 
         // Restoring the removed nodes
         mutation.removedNodes.forEach((node) => {
-          // log node before removing
-          console.log("Before change:", node.innerHTML);
-
           // Check for next sibling or previous sibling
           if (mutation.nextSibling) {
             mutation.target.insertBefore(node, mutation.nextSibling);
@@ -602,9 +550,6 @@ document.addEventListener("DOMContentLoaded", function () {
           } else {
             mutation.target.appendChild(node);
           }
-
-          // log node before removing
-          console.log("After change:", node.innerHTML);
         });
       }
 
@@ -616,22 +561,22 @@ document.addEventListener("DOMContentLoaded", function () {
   const redoMutations = mutations => {
     // For redo action
     mutations.forEach(mutation => {
-      // log added nodes and removed nodes
-      console.log('Added Nodes:', mutation.addedNodes);
-      console.log('Removed Nodes:', mutation.removedNodes);
       // Check if mutation is a characterData
       if (mutation.type === 'characterData') {
         // Redo the characterData mutation
         mutation.target.data = mutation.newValue;
       }
+
+      // Check if mutation is an attribute
+      if (mutation.type === 'attributes') {
+        mutation.target.setAttribute(mutation.attributeName, mutation.newValue);
+      }
+
       // Check if mutation is a childList
       if (mutation.type === 'childList') {
 
         // Removing removed nodes
         mutation.removedNodes.forEach(node => {
-          // log node before removing
-          console.log('Before Node:', node);
-
           // check if the node is equal to the mutation target
           if (node.isSameNode(mutation.target)) {
             console.log('Same node as target', node)
@@ -642,16 +587,10 @@ document.addEventListener("DOMContentLoaded", function () {
             // Detach node from the DOM
             mutation.target.removeChild(node);
           }
-
-          // log node after removing
-          console.log('After Node:', node);
         });
 
         // Restoring the added nodes
         mutation.addedNodes.forEach(node => {
-          // replace the node value/innerHTML with the innerData
-          // node.innerHTML = node.innerData;
-
           if (mutation.nextSibling) {
             mutation.target.insertBefore(node, mutation.nextSibling);
           }
@@ -678,9 +617,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // push the mutations to the redo stack
       redoStack.push(mutations);
 
-      console.log('Redo Stack:', redoStack);
-      console.log('Undo Stack:', undoStack);
-
       // disconnect the observer
       observer.disconnect();
 
@@ -700,9 +636,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // push the mutations to the undo stack
       undoStack.push(mutations);
 
-      console.log('Redo Stack:', redoStack);
-      console.log('Undo Stack:', undoStack);
-
       // disconnect the observer
       observer.disconnect();
 
@@ -713,8 +646,6 @@ document.addEventListener("DOMContentLoaded", function () {
       observer.observe(editor, observerOptions);
     }
   }
-
-
 
   // Handle button clicks to insert HTML tags
   const buttons = document.querySelectorAll(".toolbar button");
