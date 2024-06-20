@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // Define redo and undo stacks and a variable to keep track of the current action
   const undoStack = [];
   const redoStack = [];
-  let isUndoRedoAction = false;
 
   // Save the initial state in the undo stack (clone the initial state)
   const initialContent = editor.innerHTML;
@@ -14,9 +13,9 @@ document.addEventListener("DOMContentLoaded", function () {
   undoStack.push([{ type: 'childList', target: editor, oldValue: initialContent, addedNodes: [], removedNodes: [] }]);
 
   // Create a new MutationObserver to observe changes in the editable content
-  const observer = new MutationObserver(mutations => {
-    const snapshot = addNewValuePropertyToMutationRecords(mutations);
-
+  const observer = new MutationObserver((mutations) => {
+    const snapshot = storeMutations(mutations);
+    console.log('Snapshot:', snapshot);
     undoStack.push(snapshot);
     redoStack.length = 0; // Clear the redo stack on new changes
   });
@@ -304,9 +303,6 @@ document.addEventListener("DOMContentLoaded", function () {
           // Remove formatting from the selected nodes
           removeFormatting(nodesInRange, command, range, selection);
 
-          // const selectedContent = range.extractContents();
-          // console.log('Selected Content:', selectedContent);
-
           // Apply formatting surrounding the selected area
           applyFormatToSelection(command, range);
 
@@ -336,22 +332,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create the corresponding element for the formatting command
     const element = document.createElement(command);
 
-
-    // surround the selected text with the element
-    // range.surroundContents(element);
-
     element.appendChild(range.extractContents());
 
-    // console.log('Element:', element);
-
     range.insertNode(element);
-
-    // const selectedContent = range.extractContents();
-    // element.appendChild(selectedContent);
-
-    // Replace the selected content with the formatted element
-    // range.deleteContents();
-    // range.insertNode(element);
   };
 
   // Helper function for recursive traversal
@@ -427,16 +410,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const endContainer = range.endContainer;
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
-
-    // console.log('Parent Node', startContainer.parentNode);
-    // console.log('Parent Node Name', startContainer.parentNode.nodeName)
-    // console.log('Command', command)
-
-
-    // console.log('StartContainer:', startContainer);
-    // console.log('EndContainer:', endContainer);
-    // console.log('Chi:', endContainer.length);
-    // console.log('Parent Length', startContainer.parentNode.length)
 
     const startIsEm = startContainer.nodeType === Node.ELEMENT_NODE && startContainer.tagName.toLowerCase() === command;
     const endIsEm = endContainer.nodeType === Node.ELEMENT_NODE && endContainer.tagName.toLowerCase() === command;
@@ -554,12 +527,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // add the current selection to each mutation and retaining mutation object
     return mutations.map(mutation => {
-      // console.log('Mutation:', mutation);
-      // add snapshot of the current selection to the mutation object
       mutation.selection = saveSelection();
 
       // add newValue to the mutation object
-      // if mutation is a characterData add the newValue as the data of the target
       if (mutation.type === 'characterData') {
         mutation.newValue = mutation.target.data;
       }
@@ -575,7 +545,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // loop through removedNodes and store the nodeValue as str
         mutation.removedNodes.forEach(node => {
           node.innerData = node.innerHTML;
-          // console.log('Removed Node:', node);
         });
       }
       // if the mutation is an attribute add the newValue as the attribute value
@@ -583,111 +552,127 @@ document.addEventListener("DOMContentLoaded", function () {
         mutation.newValue = mutation.target.getAttribute(mutation.attributeName);
       }
 
+      // freeze the mutation object
+      Object.freeze(mutation);
+
       return mutation;
     })
   }
 
-  const redoMutations = undidMutations => {
-    if (undidMutations) for (let i = undidMutations.length | 0, record, type, target, addedNodes, removedNodes, nextSibling, value; i;) {
-      record = undidMutations[i = i - 1 | 0];
-      type = record.type;
-      target = record.target;
-      if (type === "childList") {
-        addedNodes = record.addedNodes;
-        removedNodes = record.removedNodes;
-        nextSibling = record.nextSibling;
+  const undoMutations = mutations => {
+    let i = mutations.length - 1;
 
-        for (let k = removedNodes.length | 0; k; k = k + 1 | 0) {
-          target.removeChild(removedNodes[k]);
-        }
-        for (let k = 0, len = addedNodes.length | 0; k < len; k = k + 1 | 0) {
-          target.insertBefore(addedNodes[k], nextSibling);
-        }
-      } else {
-        value = record.newValue;
-
-        if (type === "characterData") {
-          target.data = value;
-        }
-
-        if (type === "attributes") {
-          target.setAttribute(record.attributeName, value);
-        }
+    // loop the mutations in an opposite order
+    for (i; i >= 0; i--) {
+      const mutation = mutations[i];
+      // Check if mutation is a characterData
+      if (mutation.type === "characterData") {
+        // Undo the characterData mutation
+        mutation.target.data = mutation.oldValue;
       }
+      // Check if mutation is a childList
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach((node) => {
+          // check if the node is equal to the mutation target
+          if (node.isSameNode(mutation.target)) {
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
+          } else {
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
+          }
+
+          // log node after removing
+          console.log("After Node:", node.innerHTML);
+        });
+
+        // Restoring the removed nodes
+        mutation.removedNodes.forEach((node) => {
+          // log node before removing
+          console.log("Before change:", node.innerHTML);
+
+          // Check for next sibling or previous sibling
+          if (mutation.nextSibling) {
+            mutation.target.insertBefore(node, mutation.nextSibling);
+          } else if (mutation.previousSibling) {
+            mutation.target.insertBefore(
+              node,
+              mutation.previousSibling.nextSibling
+            );
+          } else {
+            mutation.target.appendChild(node);
+          }
+
+          // log node before removing
+          console.log("After change:", node.innerHTML);
+        });
+      }
+
+      // Restore selection
+      restoreSelection(mutation.selection);
     }
   }
 
-  const undoMutations = undidMutations => {
-    if (undidMutations) for (let i = 0, len = undidMutations.length | 0, record, type, target, addedNodes, removedNodes, nextSibling, value; i < len; i = i + 1 | 0) {
-      record = undidMutations[i];
-      type = record.type;
-      target = record.target;
-      if (type === "childList") {
-        addedNodes = record.addedNodes;
-        removedNodes = record.removedNodes;
-        nextSibling = record.nextSibling;
-
-        for (let k = removedNodes.length | 0; k; k = k + 1 | 0) {
-          target.insertBefore(removedNodes[k], nextSibling);
-        }
-        for (let k = 0, len = addedNodes.length | 0; k < len; k = k + 1 | 0) {
-          target.removeChild(addedNodes[k]);
-        }
-      } else {
-        value = record.oldValue;
-
-        if (type === "characterData") {
-          target.data = value;
-        }
-
-        if (type === "attributes") {
-          target.setAttribute(record.attributeName, value);
-        }
+  const redoMutations = mutations => {
+    // For redo action
+    mutations.forEach(mutation => {
+      // log added nodes and removed nodes
+      console.log('Added Nodes:', mutation.addedNodes);
+      console.log('Removed Nodes:', mutation.removedNodes);
+      // Check if mutation is a characterData
+      if (mutation.type === 'characterData') {
+        // Redo the characterData mutation
+        mutation.target.data = mutation.newValue;
       }
-    }
+      // Check if mutation is a childList
+      if (mutation.type === 'childList') {
+
+        // Removing removed nodes
+        mutation.removedNodes.forEach(node => {
+          // log node before removing
+          console.log('Before Node:', node);
+
+          // check if the node is equal to the mutation target
+          if (node.isSameNode(mutation.target)) {
+            console.log('Same node as target', node)
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
+          }
+          else {
+            // Detach node from the DOM
+            mutation.target.removeChild(node);
+          }
+
+          // log node after removing
+          console.log('After Node:', node);
+        });
+
+        // Restoring the added nodes
+        mutation.addedNodes.forEach(node => {
+          // replace the node value/innerHTML with the innerData
+          // node.innerHTML = node.innerData;
+
+          if (mutation.nextSibling) {
+            mutation.target.insertBefore(node, mutation.nextSibling);
+          }
+          else if (mutation.previousSibling) {
+            mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
+          }
+          else {
+            mutation.target.appendChild(node);
+          }
+        });
+      }
+
+      // Restore selection
+      restoreSelection(mutation.selection);
+    });
   }
 
-  const addNewValuePropertyToMutationRecords = mutationRecords => {
-    if (mutationRecords.length === 1) {
-      let record = mutationRecords[0];
-      if (record.type === "attributes") {
-        record.newValue = record.target.getAttributeNS(record.attributeNamespace, record.attributeName);
-      }
-      if (record.type === "characterData") {
-        record.newValue = record.target.data;
-      }
-    } 
-    else {
-      let attributeValuesMap = new WeakMap();
-
-      for (let i = mutationRecords.length - 1, record, obj, target, attrName; i >= 0; i--) {
-        record = mutationRecords[i];
-        console.log('Record:', record);
-        if (record.type === "attributes" || record.type === "characterData") {
-          target = record.target;
-          obj = attributeValuesMap.get(target);
-
-          if (!obj) attributeValuesMap.set(target, (obj = {}));
-
-          attrName = record.attributeName;
-
-          record.newValue = obj[attrName] || (target instanceof Element && typeof target.getAttributeNS === 'function' ?  target.getAttributeNS(record.attributeNamespace, attrName) : undefined);
-
-          obj[attrName] = target.oldValue;
-        }
-
-        Object.freeze(record);
-      }
-    }
-    Object.freeze(mutationRecords);
-
-    return mutationRecords;
-  }
 
   // Function to undo the last action
   const undo = () => {
     if (undoStack.length > 1) {
-      isUndoRedoAction = true;
       const mutations = undoStack.pop();
 
       // push the mutations to the redo stack
@@ -702,9 +687,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // apply undo mutations
       undoMutations(mutations);
 
-      // change the isUndoRedoAction to false
-      isUndoRedoAction = false;
-
       // reconnect the observer
       observer.observe(editor, observerOptions);
     }
@@ -713,11 +695,13 @@ document.addEventListener("DOMContentLoaded", function () {
   // Function to redo the last action
   const redo = () => {
     if (redoStack.length > 0) {
-      isUndoRedoAction = true;
       const mutations = redoStack.pop();
 
       // push the mutations to the undo stack
       undoStack.push(mutations);
+
+      console.log('Redo Stack:', redoStack);
+      console.log('Undo Stack:', undoStack);
 
       // disconnect the observer
       observer.disconnect();
@@ -725,13 +709,12 @@ document.addEventListener("DOMContentLoaded", function () {
       // apply redo mutations
       redoMutations(mutations);
 
-      // change the isUndoRedoAction to false
-      isUndoRedoAction = false;
-
       // reconnect the observer
       observer.observe(editor, observerOptions);
     }
   }
+
+
 
   // Handle button clicks to insert HTML tags
   const buttons = document.querySelectorAll(".toolbar button");
