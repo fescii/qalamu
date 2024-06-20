@@ -660,7 +660,7 @@ document.addEventListener("DOMContentLoaded", function () {
     else {
       let attributeValuesMap = new WeakMap();
 
-      for (let i = mutationRecords.length | 0, record, obj, target, attrName; i > 0; i = i - 1 | 0) {
+      for (let i = mutationRecords.length - 1, record, obj, target, attrName; i >= 0; i--) {
         record = mutationRecords[i];
         console.log('Record:', record);
         if (record.type === "attributes" || record.type === "characterData") {
@@ -675,8 +675,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
           obj[attrName] = target.oldValue;
         }
+
+        Object.freeze(record);
       }
-      Object.freeze(record);
     }
     Object.freeze(mutationRecords);
 
