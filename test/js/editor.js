@@ -526,15 +526,20 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       // Check if mutation is a childList
       if (mutation.type === "childList") {
-        mutation.addedNodes.forEach((node) => {
-          // check if the node is equal to the mutation target
-          if (node.isSameNode(mutation.target)) {
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
-          } else {
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
-          }
+        mutation.addedNodes.forEach((node, index) => {
+
+          // clone the node before removing
+          const clonedNode = node.cloneNode(true);
+
+          // get the next sibling an previous sibling
+          // const nextSibling = mutation.nextSibling;
+          // const previousSibling = mutation.previousSibling;
+
+          // replace the current nodes
+          mutation.addedNodes[index] = clonedNode;
+
+          // remove the node from the DOM
+          mutation.target.removeChild(node);
         });
 
         // Restoring the removed nodes
@@ -576,17 +581,21 @@ document.addEventListener("DOMContentLoaded", function () {
       if (mutation.type === 'childList') {
 
         // Removing removed nodes
-        mutation.removedNodes.forEach(node => {
-          // check if the node is equal to the mutation target
-          if (node.isSameNode(mutation.target)) {
-            console.log('Same node as target', node)
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
-          }
-          else {
-            // Detach node from the DOM
-            mutation.target.removeChild(node);
-          }
+        mutation.removedNodes.forEach((node, index) => {
+          // log node before removing
+          console.log('Before Node:', node);
+
+          // clone the node before removing
+          const clonedNode = node.cloneNode(true);
+
+          // replace the current nodes
+          mutation.removedNodes[index] = clonedNode;
+
+          // Detach node from the DOM
+          mutation.target.removeChild(node);
+
+          // log node after removing
+          console.log('After Node:', node);
         });
 
         // Restoring the added nodes
