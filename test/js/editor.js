@@ -14,10 +14,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // create the undo observer
   const undoObserver = new MutationObserver(mutations => {
-    console.log('Undo Observer:', mutations);
-
     // store the undo mutations
-    const snapshot = storeMutations(mutations);
+    // const snapshot = storeMutations(mutations);
+    const snapshot = storeMutationRecords(mutations);
     
     // log the snapshot
     console.log('Snapshot:', snapshot);
@@ -27,21 +26,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // clear the redo stack
     redoStack.length = 0;
+
+    // log the undo stack
+    console.log('Undo Stack:', undoStack);
   });
 
 
   // create the redo observer
   const redoObserver = new MutationObserver(mutations => {
-    console.log('Redo Observer:', mutations);
-
     // store the redo mutations
-    const snapshot = storeMutations(mutations);
+    // const snapshot = storeMutations(mutations);
+    const snapshot = storeMutationRecords(mutations);
 
     // log the snapshot
     console.log('Snapshot:', snapshot);
 
     // push the snapshot to the redo stack
     redoStack.push(snapshot);
+
+    //log the redo stack
+    console.log('Redo Stack:', redoStack);
   });
 
   // declare observer options
@@ -572,6 +576,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  // function to store mutations records
+  const storeMutationRecords = mutations => {
+    // add the current selection to each mutation and retaining mutation object
+    return mutations.map(mutation => {
+      // add selection to the mutation
+      mutation.selection = saveSelection();
+
+      return mutation;
+    })
+  }
+
   // Function to store mutations
   const storeMutations = mutations => {
 
@@ -776,8 +791,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Fun: to apply the redo mutations
   const applyRedoMutations = mutations => {
-    // For redo action
-    mutations.forEach(mutation => {
+
+    // loop the mutations in an opposite order
+    let length = mutations.length - 1;
+    for (length; length >= 0; length--) {
+      const mutation = mutations[length];
       // Check if mutation is a characterData
       if (mutation.type === 'characterData') {
         // Redo the characterData mutation
@@ -785,35 +803,30 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       // Check if mutation is a childList
       if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach(node => {
 
-        // Removing removed nodes
-        mutation.removedNodes.forEach((node, index) => {
-
-          // Detach node from the DOM
+          // remove the node from the DOM
           mutation.target.removeChild(node);
         });
 
-        // Restoring the added nodes
-        mutation.addedNodes.forEach(node => {
+        // Restoring the removed nodes
+        mutation.removedNodes.forEach(node => {
 
+          // Check for next sibling or previous sibling
           if (mutation.nextSibling) {
             mutation.target.insertBefore(node, mutation.nextSibling);
-            // mutation.target.insertBefore(node, mutation.nextSibling);
-
-          }
-          else if (mutation.previousSibling) {
+          } else if (mutation.previousSibling) {
             mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
-            // mutation.target.insertBefore(node, mutation.previousSibling.nextSibling);
           }
           else {
             mutation.target.appendChild(node);
           }
-        });
+        })
       }
 
       // Restore selection
       restoreSelection(mutation.selection);
-    });
+    }
   }
 
   // Function to undo the last action
@@ -822,10 +835,11 @@ document.addEventListener("DOMContentLoaded", function () {
       // disconnect the undo observer
       undoObserver.disconnect();
 
-      const mutations = undoStack.pop();
-
       // connect the redo observer
       redoObserver.observe(editor, observerOptions);
+
+      // pop the last action from the undo stack
+      const mutations = undoStack.pop();
 
       // apply the undo mutations
       applyUndoMutations(mutations);
@@ -838,16 +852,14 @@ document.addEventListener("DOMContentLoaded", function () {
       // disconnect the redo observer
       redoObserver.disconnect();
 
+      // connect the undo observer
+      undoObserver.observe(editor, observerOptions);
+
+      // pop the last action from the redo stack
       const mutations = redoStack.pop();
 
-      // disconnect the observer
-      observer.disconnect();
-
-      // apply mutations
-      applyMutations(mutations, false);
-
-      // reconnect the observer
-      observer.observe(editor, observerOptions);
+      // apply the redo mutations
+      applyRedoMutations(mutations);
     }
   }
 
@@ -913,7 +925,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Handle input events
   const handleInput = (e) => {
-    // const editorContent = editor.innerHTML.trim(); // Get the trimmed HTML content of the editor
+    // if user starts typing in the editor disconnect the redo observer and reconnect the undo observer
+    redoObserver.disconnect();
+    undoObserver.observe(editor, observerOptions);
 
     // Strip all html tags and check if the content is empty
     const editorContent = editor.textContent.trim(); // Get the trimmed text content of the editor
