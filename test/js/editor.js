@@ -671,7 +671,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
           attrName = record.attributeName;
 
-          record.newValue = obj[attrName] || target.getAttributeNS(record.attributeNamespace, attrName);
+          record.newValue = obj[attrName] || (target instanceof Element && typeof target.getAttributeNS === 'function' ?  target.getAttributeNS(record.attributeNamespace, attrName) : undefined);
 
           obj[attrName] = target.oldValue;
         }
