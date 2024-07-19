@@ -1,5 +1,3 @@
-"use strict";
-
 class MutationHandler {
   static redoMutations(undidMutations) {
     if (undidMutations) for (let i = undidMutations.length | 0, record, type, target, addedNodes, removedNodes, nextSibling, value; i;) {
