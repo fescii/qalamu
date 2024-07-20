@@ -1,139 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rich HTML Editor</title>
-<link rel="stylesheet" href="theme.css">
-<!-- <link rel="stylesheet" href="style.css"> -->
-<style>
-	* {
-		box-sizing: border-box;
-	}
-	html {
-		width: 100vw;
-		max-width: 100vw;
-	}
-	body {
-		width: 100vw;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		font-family: var(--font-read), sans-serif;
-	}
-	section.container {
-		border: 1px solid #ccc;
-		width: 90%;
-		min-height: 300px;
-		height: 300px;
-		margin: 0;
-		padding: 0;
-		position: relative;
-		display: flex;
-		flex-flow: column;
-		align-items: center;
-		justify-content: center;
-	}
-	.editor {
-		min-width: 100%;
-		max-width: 100%;
-		width: 100%;
-		height: calc(100% - 40px);
-		border: 1px solid #ccc;
-		padding: 10px;
-		margin-bottom: 10px;
-		color: var(--text-color);
-		overflow-y: scroll;
-	}
-
-	.editor::before {
-    content: attr(data-placeholder);
-    color: var(--gray-color);
-    position: absolute;
-    left: 10px;
-    top: 10px;
-    pointer-events: none; /* Ensures the placeholder doesn't interfere with user input */
-	}
-
-	.editor.not-empty::before {
-		display: none;
-	}
-
-	/*
-		1. Use a more-intuitive box-sizing model.
-	*/
-	*, *::before, *::after {
-		box-sizing: border-box;
-	}
-	/*
-		2. Remove default margin
-	*/
-	* {
-		margin: 0;
-	}
-	/*
-		Typographic tweaks!
-		3. Add accessible line-height
-		4. Improve text rendering
-	*/
-	.editor {
-		line-height: 1.5;
-		-webkit-font-smoothing: antialiased;
-	}
-
-	/*
-		7. Avoid text overflows
-	*/
-	p, h1, h2, h3, h4, h5, h6 {
-		overflow-wrap: break-word;
-		margin: 0 0 10px 0;
-	}
-	/*
-		8. Create a root stacking context
-	*/
-	#root, #__next {
-		isolation: isolate;
-	}
-
-	.toolbar {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		align-items: center;
-		width: 100%;
-		height: 40px;
-		gap: 5px;
-		background-color: var(--bg-color);
-		border: 1px solid #666;
-	}
-</style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Rich HTML Editor</title>
+	<link rel="stylesheet" href="theme.css">
+	<link rel="stylesheet" href="editor.css">
+	<script type="module" src="./js/index.js"></script>
 </head>
 <body>
-
-<section class="container">
-	<div class="editor" contenteditable="true" data-placeholder="Start typing here..." spellcheck="true">
-	</div>
-	<div class="toolbar">
-		<button data-node="strong" data-command="bold"><strong>B</strong></button>
-		<button data-node="em" data-command="italic"><em>I</em></button>
-		<button data-node="u" data-command="underline"><u>U</u></button>
-		<button data-none="ul" data-command="insertUnorderedList">UL</button>
-		<button data-none="ol" data-command="insertOrderedList">OL</button>
-		<button data-none="j-left" data-command="justifyLeft">Left</button>
-		<button data-none="j-center" data-command="justifyCenter">Center</button>
-		<button data-none="j-right" data-command="justifyRight">Right</button>
-		<button data-none="j-full" data-command="justifyFull">Justify</button>
-		<button data-none="link" data-command="createLink"><u>Link</u></button>
-		<button data-none="hr" data-command="insertHorizontalRule">HR</button>
-		<button data-none="h2" data-command="formatBlock">H2</button>
-		<button data-none="h3" data-command="formatBlock">H3</button>
-		<button data-none="p" data-command="formatBlock">P</button>
-		<button data-none="code" data-command="insertHTML">Code</button>
-	</div>
-</section>
-
-<script src="js/observer.js"></script>
+<main class="main">
+	<editor-element width="570" height="300" placeholder="Type something here..."></editor-element>
+</main>
 
 </body>
+
 </html>
