@@ -1,5 +1,6 @@
 // import MutationHandler from "./mutation-handler.js";
 import MutationHandler from "./observer.js";
+import KeyBoardHandler from "./keyboard.js";
 
 // Define RichTextEditor class
 export default class RichTextEditor {
@@ -32,292 +33,20 @@ export default class RichTextEditor {
     this.alignmentToolbars = this.toolbar.querySelector('.alignment.group');
 
     this.mutationHandler = new MutationHandler(this.editor);
+    this.keyPressHandler = new KeyBoardHandler(this, this.mutationHandler)
   }
 
   init() {
     this.mutationHandler.init();
+    this.keyPressHandler.init();
     this.setupEventListeners();
     this.setupToolbarListeners();
     this.setupSelectionListener();
   }
 
   setupEventListeners() {
-    this.editor.addEventListener("keypress", this.handleKeyPress.bind(this));
     this.editor.addEventListener("paste", this.handlePaste.bind(this));
-    this.editor.addEventListener("keydown", this.handleKeyDown.bind(this));
     this.editor.addEventListener("input", this.handleInput.bind(this));
-  }
-
-  setupToolbarListeners() {
-    this.setupTextToolbarListeners();
-    this.setupHeadingToolbarListeners();
-    this.setupListToolbarListeners();
-    this.setupAlignmentToolbarListeners();
-  }
-
-  handleKeyPress(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      this.handleEnterKey(e);
-    }
-  }
-
-  // handleKeyPress(e) {
-  //   // Check if the current key press is Enter
-  //   if (e.key === "Enter") {
-  //     e.preventDefault(); // Prevent default new line behavior
-
-  //     const selection = window.getSelection();
-  //     if (selection.rangeCount === 0) return;
-
-  //     const range = selection.getRangeAt(0);
-
-  //     // check if the surrounding are text nodes
-  //     if (range.startContainer.nodeType === Node.TEXT_NODE && range.endContainer.nodeType === Node.TEXT_NODE) {
-  //       this.handleDefaultEnter(range, selection);
-  //     }
-
-  //     const currentFormatting = this.getCurrentFormatting(range);
-
-  //     if (currentFormatting === "ol" || currentFormatting === "ul") {
-  //       this.handleListEnter(range, currentFormatting);
-  //     } else if (currentFormatting === "p") {
-  //       this.handleParagraphEnter(range);
-  //     } else {
-  //       this.handleDefaultEnter(range, selection);
-  //     }
-
-  //     this.mutationHandler.saveState();
-  //   }
-  // }
-
-  // getCurrentFormatting(range) {
-  //   let node = range.startContainer;
-  //   while (node && node !== this.editor) {
-  //     if (node.nodeName === 'UL') return 'ul';
-  //     if (node.nodeName === 'OL') return 'ol';
-  //     if (node.nodeName === 'P') return 'p';
-  //     node = node.parentNode;
-  //   }
-  //   return null;
-  // }
-
-  // getContainingLi(node) {
-  //   while (node && node !== this.editor) {
-  //     if (node.nodeName === 'LI') return node;
-  //     node = node.parentNode;
-  //   }
-  //   return null;
-  // }
-
-  // handleListEnter(range, listType) {
-  //   const currentLi = this.getContainingLi(range.startContainer);
-  //   if (!currentLi) return;
-
-  //   if (currentLi.textContent.trim() === '') {
-  //     // Empty list item: move out of the list
-  //     const list = currentLi.parentNode;
-  //     const newPara = document.createElement('p');
-  //     newPara.innerHTML = '&#160;'; // Non-breaking space
-  //     if (list.nextSibling) {
-  //       list.parentNode.insertBefore(newPara, list.nextSibling);
-  //     } else {
-  //       list.parentNode.appendChild(newPara);
-  //     }
-  //     list.removeChild(currentLi);
-  //     if (list.children.length === 0) {
-  //       list.parentNode.removeChild(list);
-  //     }
-  //     range.setStart(newPara, 0);
-  //   } else {
-  //     // Non-empty list item: create a new list item
-  //     const newLi = document.createElement('li');
-  //     newLi.innerHTML = '&#160;'; // Non-breaking space
-  //     if (range.collapsed && range.startOffset === currentLi.textContent.length) {
-  //       // Cursor at the end: insert after
-  //       if (currentLi.nextSibling) {
-  //         currentLi.parentNode.insertBefore(newLi, currentLi.nextSibling);
-  //       } else {
-  //         currentLi.parentNode.appendChild(newLi);
-  //       }
-  //     } else {
-  //       // Cursor in the middle: split the current li
-  //       const fragment = range.extractContents();
-  //       newLi.appendChild(fragment);
-  //       currentLi.parentNode.insertBefore(newLi, currentLi.nextSibling);
-  //     }
-  //     range.setStart(newLi, 0);
-  //   }
-
-  //   range.collapse(true);
-  //   this.updateEnterSelection(range);
-  // }
-
-  // handleParagraphEnter(range) {
-  //   const currentNode = range.startContainer;
-  //   const parentNode = currentNode.parentNode;
-  //   const cursorOffset = range.startOffset;
-
-  //   if (currentNode.nodeType === Node.TEXT_NODE && cursorOffset === currentNode.length) {
-  //     // Cursor at the end of text node
-  //     const newPara = document.createElement('p');
-  //     newPara.innerHTML = '&#160;'; // Non-breaking space
-  //     if (parentNode.nextSibling) {
-  //       this.editor.insertBefore(newPara, parentNode.nextSibling);
-  //     } else {
-  //       this.editor.appendChild(newPara);
-  //     }
-  //     range.setStart(newPara, 0);
-  //   } else if (currentNode.nodeType === Node.TEXT_NODE && cursorOffset === 0) {
-  //     // Cursor at the beginning of text node
-  //     const newPara = document.createElement('p');
-  //     newPara.innerHTML = '&#160;'; // Non-breaking space
-  //     this.editor.insertBefore(newPara, parentNode);
-  //     range.setStart(newPara, 0);
-  //   }
-
-  //   range.collapse(true);
-  //   this.updateEnterSelection(range);
-  // }
-
-  // handleDefaultEnter(range, selection) {
-  //   // Cursor is between contents, insert <br> manually
-  //   const br = document.createElement("br");
-  //   range.insertNode(br);
-  //   range.setStartAfter(br);
-  //   range.collapse(true);
-  //   selection.removeAllRanges();
-  //   selection.addRange(range);
-  // }
-
-  updateEnterSelection(range) {
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }
-
-  handleKeyPress = (e) => {
-    if (e.key !== "Enter") return;
-
-    e.preventDefault(); // Prevent default new line behavior
-
-    const selection = window.getSelection();
-    const range = selection.rangeCount ? selection.getRangeAt(0) : new Range(); // Handle empty editor
-
-    const currentFormatting = this.getCurrentFormatting(range);
-
-    if (currentFormatting === "ol" || currentFormatting === "ul") {
-      this.handleListEnter(range, currentFormatting);
-    } else if (currentFormatting === "p") {
-      this.handleParagraphEnter(range,selection);
-    } else {
-      // Handle other scenarios (e.g., headings, tables)
-      this.handleDefaultEnter(range, selection);
-    }
-
-    this.mutationHandler.saveState();
-  }
-
-  getCurrentFormatting(range) {
-    let node = range.startContainer;
-    while (node && node !== this.editor) {
-      if (node.nodeName === 'UL') return 'ul';
-      if (node.nodeName === 'OL') return 'ol';
-      if (node.nodeName === 'P') return 'p';
-      node = node.parentNode;
-    }
-    return null;
-  }
-
-  handleListEnter = (range, listType) => {
-    const currentLi = range.startContainer.closest('LI');
-    if (!currentLi) return;
-
-    if (currentLi.textContent.trim() === '') {
-      // Empty list item: remove or move out of list
-      const list = currentLi.parentNode;
-      if (list.children.length === 1) {
-        // Single item list: remove entire list
-        list.parentNode.removeChild(list);
-      } else {
-        // Move out of list and insert a paragraph
-        const newPara = document.createElement('p');
-        newPara.innerHTML = '&#160;'; // Non-breaking space
-        if (list.nextSibling) {
-          list.parentNode.insertBefore(newPara, list.nextSibling);
-        } else {
-          list.parentNode.appendChild(newPara);
-        }
-        list.removeChild(currentLi);
-        range.setStart(newPara, 0);
-      }
-    } else {
-      // Non-empty list item: create a new list item based on cursor position
-      const newLi = document.createElement('li');
-      newLi.innerHTML = '&#160;'; // Non-breaking space
-      if (range.collapsed && range.startOffset === currentLi.textContent.length) {
-        // Cursor at the end: insert after
-        if (currentLi.nextSibling) {
-          currentLi.parentNode.insertBefore(newLi, currentLi.nextSibling);
-        } else {
-          currentLi.parentNode.appendChild(newLi);
-        }
-      } else {
-        // Cursor in the middle: split the current li
-        const fragment = range.extractContents();
-        newLi.appendChild(fragment);
-        currentLi.parentNode.insertBefore(newLi, currentLi.nextSibling);
-      }
-      range.setStart(newLi, 0);
-    }
-
-    range.collapse(true);
-    this.updateEnterSelection(range);
-  }
-
-  handleParagraphEnter = (range, selection) => {
-    const currentNode = range.startContainer;
-    const parentNode = currentNode.parentNode;
-    const cursorOffset = range.startOffset;
-  
-    if (currentNode.nodeType === Node.TEXT_NODE) {
-      if (cursorOffset === 0) {
-        // Cursor at the beginning: insert a new paragraph before
-        const newPara = document.createElement('p');
-        newPara.innerHTML = '&#160;'; // Non-breaking space
-        parentNode.parentNode.insertBefore(newPara, parentNode);
-        range.setStart(newPara, 0);
-
-        range.collapse(true);
-        this.updateEnterSelection(range); 
-      } else if (cursorOffset === currentNode.length) {
-        // Cursor at the end: insert a new paragraph after (existing logic)
-        const newPara = document.createElement('p');
-        newPara.innerHTML = '&#160;'; // Non-breaking space
-        if (parentNode.nextSibling) {
-          parentNode.parentNode.insertBefore(newPara, parentNode.nextSibling);
-        } else {
-          parentNode.parentNode.appendChild(newPara);
-        }
-        range.setStart(newPara, 0);
-      } else {
-        this.handleDefaultEnter(range, selection)
-      }
-    } else {
-      this.handleDefaultEnter(range, selection)
-    }
-  }
-  
-
-  handleDefaultEnter(range, selection) {
-    // Cursor is between contents, insert <br> manually
-    const br = document.createElement("br");
-    range.insertNode(br);
-    range.setStartAfter(br);
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    this.updateEnterSelection(range); 
   }
 
 
@@ -360,6 +89,7 @@ export default class RichTextEditor {
 
     this.updatePlaceholder();
     this.mutationHandler.saveState();
+    this.countWords(e);
   }
 
   insertAsParagraph(text, range) {
@@ -386,25 +116,11 @@ export default class RichTextEditor {
 
   // End paste
 
-
-
-
-  handleKeyDown(e) {
-    if ((e.ctrlKey || e.metaKey) && ["b", "i", "u"].includes(e.key.toLowerCase())) {
-      e.preventDefault();
-      const command = e.key.toLowerCase() === "b" ? "strong" : e.key.toLowerCase() === "i" ? "em" : "u";
-      this.toggleInlineStyle(command);
-    } else if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
-      e.preventDefault();
-      if (e.key.toLowerCase() === 'z') {
-        this.mutationHandler.undo();
-      } else if (e.key.toLowerCase() === 'y') {
-        this.mutationHandler.redo();
-      }
-    }
-
-    // count words
-    this.countWords(e);
+  setupToolbarListeners() {
+    this.setupTextToolbarListeners();
+    this.setupHeadingToolbarListeners();
+    this.setupListToolbarListeners();
+    this.setupAlignmentToolbarListeners();
   }
 
   handleInput(e) {
@@ -440,6 +156,19 @@ export default class RichTextEditor {
         const range = selection.getRangeAt(0);
         if (this.editor.contains(range.commonAncestorContainer)) {
           this.lastSelection = range.cloneRange();
+
+          // maintain the selection when the toolbar is clicked
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        else {
+          // clear the selection if it's outside the editor
+          selection.removeAllRanges();
+
+          // add the last selection if it exists
+          if (this.lastSelection) {
+            selection.addRange(this.lastSelection);
+          }
         }
       }
     });
